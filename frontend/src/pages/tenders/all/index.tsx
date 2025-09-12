@@ -91,6 +91,7 @@ export default function AllTendersPage({ tenders: initialTenders, userName, user
   const router = useRouter();
 
   // State for filters
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [minBudget, setMinBudget] = useState<string>('');
@@ -201,7 +202,7 @@ export default function AllTendersPage({ tenders: initialTenders, userName, user
 
     setIsDeleting(true); // Start loading state for delete button
     try {
-      const response = await fetch(`http://localhost:5000/api/tenders/${tenderToDelete.id}`, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/tenders/${tenderToDelete.id}`, {
         method: 'DELETE',
         credentials: 'include', // Important for sending the cookie
       });
@@ -439,10 +440,10 @@ export const getServerSideProps: GetServerSideProps<TendersPageProps> = async (c
   const cookie = context.req.headers.cookie || '';
   let userName: string = 'User';
   let userCompanyId: number | undefined; // To store the logged-in user's companyId
-
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   try {
     // 1. Fetch User Info (crucial for getting companyId to EXCLUDE)
-    const userRes = await fetch("http://localhost:5000/api/auth/me", {
+    const userRes = await fetch(`${BACKEND_BASE_URL}/api/auth/me`, {
       headers: {
         Cookie: cookie, // Send cookies to authenticate
       },
@@ -465,7 +466,7 @@ export const getServerSideProps: GetServerSideProps<TendersPageProps> = async (c
 
     // 2. Fetch Tenders. The backend now automatically excludes the logged-in company's tenders.
     // So, we no longer need to send `excludeCompanyId` as a query parameter.
-    const tendersRes = await fetch(`http://localhost:5000/api/tenders/all`, {
+    const tendersRes = await fetch(`${BACKEND_BASE_URL}/api/tenders/all`, {
       headers: {
         Cookie: cookie,
       },

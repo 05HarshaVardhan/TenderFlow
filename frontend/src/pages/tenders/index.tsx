@@ -82,7 +82,7 @@ interface TendersPageProps {
 
 export default function TendersPage({ tenders: initialTenders, userName, error }: TendersPageProps) {
   const router = useRouter();
-
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [minBudget, setMinBudget] = useState<string>('');
@@ -167,7 +167,7 @@ export default function TendersPage({ tenders: initialTenders, userName, error }
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/tenders/${tenderToDelete.id}`, {
+      const response = await fetch(`${BACKEND_BASE_URL}/api/tenders/${tenderToDelete.id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -420,13 +420,13 @@ export default function TendersPage({ tenders: initialTenders, userName, error }
 export const getServerSideProps: GetServerSideProps<TendersPageProps> = async (context) => {
   const cookie = context.req.headers.cookie || '';
   const { query } = context;
-
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   let userName: string = 'User';
   let loggedInUserId: number | undefined;
 
   try {
     // --- 1. Fetch User Info to get loggedInUserId ---
-    const userRes = await fetch("http://localhost:5000/api/auth/me", {
+    const userRes = await fetch(`${BACKEND_BASE_URL}/api/auth/me`, {
       headers: { Cookie: cookie },
     });
 
@@ -465,7 +465,7 @@ export const getServerSideProps: GetServerSideProps<TendersPageProps> = async (c
     queryParams.append('page', (query.page as string) || '1');
 
 
-    const apiUrl = `http://localhost:5000/api/tenders/my?${queryParams.toString()}`;
+    const apiUrl = `${BACKEND_BASE_URL}/api/tenders/my?${queryParams.toString()}`;
 
     console.log('FRONTEND DEBUG: My Tenders API URL:', apiUrl);
 

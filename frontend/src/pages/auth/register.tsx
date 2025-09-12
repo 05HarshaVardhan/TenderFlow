@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 // ✅ Updated schema with "none" support
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 const registerSchema = z.object({
   fullName: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email"),
@@ -61,7 +62,7 @@ export default function RegisterPage() {
   useEffect(() => {
     async function fetchCompanies() {
       try {
-        const res = await axios.get("http://localhost:5000/api/companies/select");
+        const res = await axios.get(`${BACKEND_BASE_URL}/api/companies/select`);
         setCompanies(res.data.companies);
       } catch (err) {
         console.error("Error fetching companies:", err);
@@ -74,7 +75,7 @@ export default function RegisterPage() {
     try {
       console.log("submitting:", data);
 
-      await axios.post("http://localhost:5000/api/auth/signup", data);
+      await axios.post(`${BACKEND_BASE_URL}/api/auth/signup`, data);
       setToast({ type: "success", message: "Signup Successful" });
 
       setTimeout(() => {

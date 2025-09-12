@@ -35,7 +35,7 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
-
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   const router = useRouter();
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -45,7 +45,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       const res = await axios.post(
-        "http://localhost:5000/api/auth/login",
+        `${BACKEND_BASE_URL}/api/auth/login`,
         {
           email: data.email,
           password: data.password,

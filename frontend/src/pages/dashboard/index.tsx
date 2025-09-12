@@ -97,6 +97,7 @@ export default function Dashboard({
   initialToken, // ⭐ Destructure setCompanyDetails prop here ⭐
 }: DashboardProps) {
   const router = useRouter();
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   const [groupBy, setGroupBy] = useState<"month" | "year">("month");
   const [showJoinModal, setShowJoinModal] = useState(false);
 
@@ -156,6 +157,7 @@ export default function Dashboard({
     );
   }
 
+  
   const addGoodsService = () => {
     const trimmedInput = currentGoodsServiceInput.trim();
     if (trimmedInput && !newCompanyGoodsServices.includes(trimmedInput)) {
@@ -174,7 +176,7 @@ export default function Dashboard({
     async function fetchCompaniesForSelect() {
       try {
         const token = parseCookies().jwt;
-        const res = await fetch("http://localhost:5000/api/companies/select", {
+        const res = await fetch(`${BACKEND_BASE_URL}/api/companies/select`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -249,7 +251,7 @@ export default function Dashboard({
 
     let isValid = true;
     let payload: Record<string, any> | FormData;
-    let endpoint = "http://localhost:5000/api/";
+    let endpoint = `${BACKEND_BASE_URL}/api/`;
 
     if (activeTab === "existing") {
       if (!selectedExistingCompanyId) {
@@ -495,7 +497,7 @@ export default function Dashboard({
                                 );
 
                                 const response = await fetch(
-                                  `http://localhost:5000/api/companies/${companyDetails.id}/logo`,
+                                  `${BACKEND_BASE_URL}/api/companies/${companyDetails.id}/logo`,
                                   {
                                     // Adjust API endpoint if different
                                     method: "PUT",
@@ -1047,6 +1049,7 @@ export default function Dashboard({
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const cookies = parseCookies(ctx);
   const token = cookies.jwt;
+  const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
   if (!token) {
     return {
@@ -1055,7 +1058,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   }
 
   try {
-    const res = await fetch("http://localhost:5000/api/dashboard", {
+    const res = await fetch(`${BACKEND_BASE_URL}/api/dashboard`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
