@@ -2,6 +2,7 @@ const { Company, GoodsServices, User, Tender, Application } = require('../models
 const { Op } = require('sequelize');
 const cloudinary = require('../utils/CloudinaryClient'); // Updated to Cloudinary client
 const jwt = require('jsonwebtoken');
+const streamifier = require('streamifier');
 
 // 1. Create a company with optional logo upload
 exports.createCompany = async (req, res) => {
@@ -19,17 +20,32 @@ exports.createCompany = async (req, res) => {
     }
 
     // 🔽 Upload logo to Cloudinary if exists
-    if (req.file) {
-      const file = req.file;
-      const uploadResult = await cloudinary.uploader.upload(file.path, {
-        folder: `company_logos`,
-        transformation: [{ width: 500, height: 500, crop: "limit" }],
-        use_filename: true,
-        unique_filename: false,
-        overwrite: true,
-      });
-      logoUrl = uploadResult.secure_url;
-    }
+    const streamifier = require('streamifier');
+
+if (req.file) {
+  const streamUpload = (buffer) => {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'company_logos',
+          transformation: [{ width: 500, height: 500, crop: "limit" }],
+          use_filename: true,
+          unique_filename: false,
+          overwrite: true,
+        },
+        (error, result) => {
+          if (result) resolve(result);
+          else reject(error);
+        }
+      );
+      streamifier.createReadStream(buffer).pipe(stream);
+    });
+  };
+
+  const uploadResult = await streamUpload(req.file.buffer);
+  logoUrl = uploadResult.secure_url;
+}
+
 
     // 🏗️ Create the company
     const company = await Company.create({ name, industry, description, logoUrl });
@@ -148,14 +164,26 @@ exports.updateCompany = async (req, res) => {
 
     let logoUrl = company.logoUrl;
     if (req.file) {
-      const file = req.file;
-      const uploadResult = await cloudinary.uploader.upload(file.path, {
-        folder: `company_logos`,
-        transformation: [{ width: 500, height: 500, crop: "limit" }],
-        use_filename: true,
-        unique_filename: false,
-        overwrite: true,
-      });
+      const streamUpload = (buffer) => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: 'company_logos',
+              transformation: [{ width: 500, height: 500, crop: "limit" }],
+              use_filename: true,
+              unique_filename: false,
+              overwrite: true,
+            },
+            (error, result) => {
+              if (result) resolve(result);
+              else reject(error);
+            }
+          );
+          streamifier.createReadStream(buffer).pipe(stream);
+        });
+      };
+    
+      const uploadResult = await streamUpload(req.file.buffer);
       logoUrl = uploadResult.secure_url;
     }
 

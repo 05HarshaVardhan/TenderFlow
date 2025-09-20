@@ -1,6 +1,6 @@
 const { Company, User } = require('../models'); // Needed to get the user's companyId
 const cloudinary = require('../utils/CloudinaryClient'); // Your configured Cloudinary instance
-
+const streamifier =  require('streamifier');
 /**
  * @desc    Update a company's logo
  * @route   PUT /api/companies/:id/logo

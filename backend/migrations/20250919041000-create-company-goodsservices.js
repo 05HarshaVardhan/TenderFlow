@@ -1,42 +1,42 @@
 'use strict';
 
-/** @type {import('sequelize-cli').Migration} */
-'use strict';
-
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  async up(queryInterface, Sequelize) {
     await queryInterface.createTable('CompanyGoodsServices', {
       companyId: {
         type: Sequelize.INTEGER,
+        allowNull: false,
         references: {
           model: 'Companies',
-          key: 'id'
+          key: 'id',
         },
         onDelete: 'CASCADE',
-        allowNull: false
+        primaryKey: true,
       },
       goodsServiceId: {
         type: Sequelize.INTEGER,
+        allowNull: false,
         references: {
           model: 'GoodsServices',
-          key: 'id'
+          key: 'id',
         },
         onDelete: 'CASCADE',
-        allowNull: false
+        primaryKey: true,
       },
       createdAt: {
         allowNull: false,
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('NOW()'),
       },
       updatedAt: {
         allowNull: false,
-        type: Sequelize.DATE
-      }
+        type: Sequelize.DATE,
+        defaultValue: Sequelize.literal('NOW()'),
+      },
     });
   },
 
-  down: async (queryInterface, Sequelize) => {
+  async down(queryInterface) {
     await queryInterface.dropTable('CompanyGoodsServices');
-  }
+  },
 };
-
