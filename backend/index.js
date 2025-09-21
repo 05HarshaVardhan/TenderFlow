@@ -15,6 +15,18 @@ const scheduleTenderExpiryJob = require('./jobs/tenderExpiryJob');
 const app = express();
 
 // ✅ Middleware (order matters)
+// Add this at the very start of your backend entry file (e.g., index.js)
+
+try {
+  require('pg');
+  console.log('✅ pg module IS accessible at runtime');
+} catch (err) {
+  console.error('❌ pg module is MISSING:', err.message);
+}
+
+// Also, log current working directory to ensure correct project folder
+console.log('Current working directory:', process.cwd());
+
 app.use(cors({
   origin: 'http://localhost:3000', // your frontend origin
   credentials: true
