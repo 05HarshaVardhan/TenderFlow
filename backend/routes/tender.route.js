@@ -17,7 +17,7 @@ console.log("Type of tenderController.getCompanyTendersByStatus:", typeof tender
 
 // NEW: Get tenders created by the logged-in user
 // THIS LINE WAS MISSING OR NOT SAVED
-router.get('/my', auth, tenderController.getMyTenders);
+router.get('/my', tenderController.getMyTenders);
 
 // Get all tenders (this now functions for general/public tenders, not specific user's)
 router.get('/all',auth, tenderController.getAllTenders);
