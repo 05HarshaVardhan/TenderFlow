@@ -1,3 +1,5 @@
+
+//backend\src\models\Company.js
 const mongoose = require('mongoose');
 
 const companySchema = new mongoose.Schema(

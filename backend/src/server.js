@@ -15,7 +15,6 @@ async function startServer() {
     console.log(`Server running on port ${PORT}`); 
 
   }); 
-  console.log(`hey tanu welcome to harsh's workspace`);
   // later we will attach Socket.IO to `server` for real-time bids
 }
 

@@ -1,3 +1,5 @@
+
+//backend\src\validation\authSchema.js
 const Joi = require('joi');
 
 const registerCompanyAdminSchema = Joi.object({

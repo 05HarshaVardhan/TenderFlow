@@ -1,3 +1,4 @@
+// backend/src/models/Tender.js
 const mongoose = require('mongoose');
 
 const tenderSchema = new mongoose.Schema(
@@ -13,7 +14,7 @@ const tenderSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // ownership
+    // Ownership & Relationships
     ownerCompany: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Company',
@@ -24,14 +25,22 @@ const tenderSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    // Array of references to the Bid model
+    bids: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bid',
+      },
+    ],
 
+    // Lifecycle State
     status: {
       type: String,
       enum: ['DRAFT', 'PUBLISHED', 'CLOSED', 'AWARDED'],
       default: 'DRAFT',
     },
 
-    // commercial / timing
+    // Commercial / Timing
     budgetMin: {
       type: Number,
     },
@@ -49,7 +58,7 @@ const tenderSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // classification / search
+    // Classification / Search
     category: {
       type: String,
       trim: true,
@@ -61,7 +70,7 @@ const tenderSchema = new mongoose.Schema(
       },
     ],
 
-    // documents attached to tender
+    // Documents attached to tender
     documents: [
       {
         url: { type: String, required: true },
@@ -71,7 +80,7 @@ const tenderSchema = new mongoose.Schema(
       },
     ],
 
-    // AI fields
+    // AI & Advanced fields
     embedding: {
       type: [Number], // vector for semantic search
       default: [],
@@ -91,7 +100,7 @@ const tenderSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Automatically manages createdAt and updatedAt
   }
 );
 

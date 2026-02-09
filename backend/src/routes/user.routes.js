@@ -1,3 +1,5 @@
+
+//backend\src\routes\user.routes.js
 const express = require('express');
 const Joi = require('joi');
 const User = require('../models/User');
@@ -40,35 +42,26 @@ router.post(
   async (req, res) => {
     try {
       const { name, email, password, role, jobTitle, phone } = req.body;
-
-      // Check email uniqueness
       const existingUser = await User.findOne({ email: email.toLowerCase() });
-      if (existingUser) {
-        return res.status(409).json({ message: 'Email already registered' });
-      }
+      if (existingUser) return res.status(409).json({ message: 'Email already registered' });
 
-      // COMPANY_ADMIN creates users for their company only
-      const companyId = req.user.companyId;
-
-      // Hash password
       const passwordHash = await bcrypt.hash(password, 10);
 
-      // Create user
       const user = await User.create({
         name,
         email: email.toLowerCase(),
         passwordHash,
         role,
-        company: companyId,
+        company: req.user.companyId,
         jobTitle,
         phone,
       });
 
-      // Return user without password
-      const { passwordHash: _, ...userWithoutPassword } = user.toObject();
-      res.status(201).json(userWithoutPassword);
+      // CLEANUP: Convert to object and delete passwordHash manually for creation
+      const userObj = user.toObject();
+      delete userObj.passwordHash;
+      res.status(201).json(userObj);
     } catch (err) {
-      console.error('Create user error:', err);
       res.status(500).json({ message: 'Server error' });
     }
   }
@@ -77,21 +70,21 @@ router.post(
 // GET /api/users/my-company - List company users
 router.get('/my-company', auth, async (req, res) => {
   try {
-    const users = await User.find({ company: req.user.companyId })
-      .populate('company', 'name badge')
-      .sort({ createdAt: -1 });
+    // If Super Admin, they can see everyone; otherwise, filter by company
+    const query = req.user.role === 'SUPER_ADMIN' ? {} : { company: req.user.companyId };
 
-    // Remove passwords from response
-    const safeUsers = users.map(({ passwordHash, ...user }) => user);
+    const users = await User.find(query)
+      .select('-passwordHash')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(safeUsers);
+    res.json(users);
   } catch (err) {
-    console.error('List users error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error fetching team' });
   }
 });
 
-// PATCH /api/users/:id - Update user (role, active status)
+// PATCH /api/users/:id - Update user
 router.patch(
   '/:id',
   auth,
@@ -100,37 +93,35 @@ router.patch(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
 
-      const user = await User.findById(id);
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+      // 1. Perform the update atomically
+      // By including 'company' in the filter, we ensure a COMPANY_ADMIN 
+      // can only find/update users belonging to their own company.
+      const query = { _id: id };
+      if (req.user.role !== 'SUPER_ADMIN') {
+        query.company = req.user.companyId;
       }
 
-      // COMPANY_ADMIN can only update users in their company
-      if (
-        req.user.role !== 'SUPER_ADMIN' &&
-        user.company.toString() !== req.user.companyId.toString()
-      ) {
-        return res.status(403).json({ message: 'Forbidden: not your company user' });
+      const updatedUser = await User.findOneAndUpdate(
+        query,
+        { $set: req.body },
+        { 
+          new: true,           // Return the document AFTER update
+          runValidators: true, // Ensure Joi-validated data also passes Mongoose schema rules
+          select: '-passwordHash' // Security: strip password
+        }
+      ).lean(); // Returns a clean JSON object for the frontend
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found or unauthorized' });
       }
 
-      // Apply updates
-      if (updates.role) user.role = updates.role;
-      if (updates.isActive !== undefined) user.isActive = updates.isActive;
-      if (updates.jobTitle) user.jobTitle = updates.jobTitle;
-      if (updates.phone) user.phone = updates.phone;
-
-      await user.save();
-
-      // Return without password
-      const { passwordHash: _, ...userWithoutPassword } = user.toObject();
-      res.json(userWithoutPassword);
+      // 2. Return the clean object
+      res.json(updatedUser);
     } catch (err) {
       console.error('Update user error:', err);
       res.status(500).json({ message: 'Server error' });
     }
   }
 );
-
 module.exports = router;

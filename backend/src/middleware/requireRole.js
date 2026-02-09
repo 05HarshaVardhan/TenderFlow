@@ -1,3 +1,5 @@
+
+//backend\src\middleware\requireRole.js
 function requireRole(...allowedRoles) {
     return (req, res, next) => {
       if (!req.user) {
