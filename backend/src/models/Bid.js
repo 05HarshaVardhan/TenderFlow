@@ -1,79 +1,60 @@
-
-//backend\src\models\Bid.js
 const mongoose = require('mongoose');
 
-const bidSchema = new mongoose.Schema(
-  {
-    tender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Tender',
-      required: true,
-    },
-    bidderCompany: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Company',
-      required: true,
-    },
-    submittedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
+const bidSchema = new mongoose.Schema({
+  // --- References ---
+  tender: { type: mongoose.Schema.Types.ObjectId, ref: 'Tender', required: true },
+  bidderCompany: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    deliveryDays: {
-      type: Number,
-      min: 0,
-    },
-    validTill: {
-      type: Date,
-    },
+  // --- Commercial/Financial Details ---
+  amount: { type: Number, required: true, min: 0 },
+  currency: { type: String, default: 'USD' },
+  deliveryDays: { type: Number, required: true, min: 1 },
+  validTill: { type: Date }, // How long this bid is legally binding
 
-    status: {
-      type: String,
-      enum: ['DRAFT', 'SUBMITTED', 'WITHDRAWN', 'ACCEPTED', 'REJECTED'],
-      default: 'DRAFT',
-    },
-
-    // documents attached to bid
-    documents: [
-      {
-        url: { type: String, required: true },
-        name: { type: String, required: true },
-        type: { type: String },
-        uploadedAt: { type: Date, default: Date.now },
-      },
-    ],
-
-    // AI / scoring fields
-    anomalyScore: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    aiRank: {
-      type: Number,
-      min: 0,
-    },
-    aiNotes: {
-      type: String,
-    },
-    score: {
-      type: Number,
-      min: 0,
-    },
-    notes: {
-      type: String,
-      trim: true,
-    },
+  // --- EMD / Bid Security Verification ---
+  emdPaymentProof: {
+    transactionId: { type: String },
+    paymentMode: { type: String, enum: ['ONLINE', 'DD', 'BG', 'NA'] },
+    receiptDoc: {
+      url: { type: String },
+      public_id: { type: String },
+      name: { type: String }
+    }
   },
-  {
-    timestamps: true,
-  }
-);
+
+  // --- Status ---
+  status: {
+    type: String,
+    enum: ['DRAFT', 'SUBMITTED', 'WITHDRAWN', 'ACCEPTED', 'REJECTED', 'UNDER_REVIEW'],
+    default: 'DRAFT',
+  },
+
+  // --- TWO-ENVELOPE DOCUMENTATION (Cloudinary) ---
+  // Split for professional "Technical vs Financial" evaluation
+  technicalDocs: [{
+    url: { type: String, required: true },
+    public_id: { type: String, required: true },
+    name: { type: String, required: true },
+    fileType: { type: String }
+  }],
+  financialDocs: [{
+    url: { type: String, required: true },
+    public_id: { type: String, required: true },
+    name: { type: String, required: true },
+    fileType: { type: String }
+  }],
+
+  // --- PRESERVED AI & SCORING FIELDS ---
+  anomalyScore: { type: Number, default: 0 }, // Used for flagging Abnormally Low Bids
+  aiRank: { type: Number },
+  aiNotes: { type: String },
+  score: { type: Number, min: 0, max: 100 }, // Technical score assigned by AI
+  notes: { type: String, trim: true }, // Bidder's cover letter/proposal notes
+
+}, { timestamps: true });
+
+// Index for quick lookup on tender results
+bidSchema.index({ tender: 1, amount: 1, status: 1 });
 
 module.exports = mongoose.model('Bid', bidSchema);

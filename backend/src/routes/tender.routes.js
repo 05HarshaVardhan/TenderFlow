@@ -1,218 +1,327 @@
+const cloudinary = require('cloudinary').v2;
 const express = require('express');
 const Tender = require('../models/Tender');
 const Bid = require('../models/Bid');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
-const validate = require('../middleware/validate');
-const { createTenderSchema } = require('../validation/tenderSchema');
-
+const { publishTenderSchema } = require('../validation/tenderSchema');
+const { uploadMultiple } = require('../middleware/upload');
 const router = express.Router();
 
-/**
- * Helper to get a tender scoped by permissions
- */
+// Helper to enforce ownership
 const getTenderQuery = (req, tenderId) => {
-  const query = { _id: tenderId };
-  // SUPER_ADMIN can bypass company check
-  if (req.user.role !== 'SUPER_ADMIN') {
-    query.ownerCompany = req.user.companyId;
+  let query = { _id: tenderId };
+  
+  if (req.user.role === 'SUPER_ADMIN') return query;
+
+  // Always restrict by company
+  query.ownerCompany = req.user.companyId;
+
+  // If the user is only a Poster, restrict to their own drafts
+  if (req.user.role === 'TENDER_POSTER') {
+    query.createdBy = req.user.id;
   }
+
   return query;
 };
 
-// POST /api/tenders - Create tender
-router.post(
-  '/',
-  auth,
-  requireRole('COMPANY_ADMIN', 'TENDER_POSTER'),
-  validate(createTenderSchema),
-  async (req, res) => {
-    try {
-      const tender = await Tender.create({
-        ...req.body,
-        ownerCompany: req.user.companyId,
-        createdBy: req.user.id,
-      });
+// --- CREATE TENDER (DRAFT) ---
+router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMultiple('documents', 10), async (req, res) => {
+  try {
+    const documentData = req.files ? req.files.map(file => ({
+      url: file.path, 
+      public_id: file.filename, 
+      name: file.originalname, 
+      fileType: file.mimetype
+    })) : [];
 
-      res.status(201).json(tender.toObject());
-    } catch (err) {
-      console.error('Create tender error:', err);
-      res.status(500).json({ message: 'Server error' });
-    }
+    const tender = await Tender.create({
+      ...req.body,
+      status: 'DRAFT',
+      estimatedValue: Number(req.body.estimatedValue || 0),
+      emdAmount: Number(req.body.emdAmount || 0),
+      documents: documentData,
+      ownerCompany: req.user.companyId,
+      createdBy: req.user.id
+    });
+    
+    res.status(201).json(tender);
+  } catch (err) {
+    console.error('Draft creation error:', err);
+    res.status(500).json({ message: 'Draft creation failed', error: err.message });
   }
-);
-
-// GET /api/tenders/my-company - For Dashboard
-router.get('/my-company', auth, async (req, res) => {
-  const query = req.user.role === 'SUPER_ADMIN' ? {} : { ownerCompany: req.user.companyId };
-  
-  const tenders = await Tender.find(query).populate({
-    path: 'bids',
-    match: { status: 'SUBMITTED' } // <--- Only populate submitted bids for the count
-  }).lean();
-
-  res.json(tenders);
 });
 
-// GET /api/tenders/available - For Bidders
+// --- UPDATE TENDER (DRAFT ONLY) ---
+// This handles both text data and new file uploads for editing
+router.patch('/:id', 
+  auth, 
+  requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'),
+  uploadMultiple('documents', 10),
+  async (req, res) => {
+    try {
+      const tender = await Tender.findOne(getTenderQuery(req, req.params.id));
+      if (!tender) return res.status(404).json({ message: 'Tender not found' });
+
+      // 1. Identify files to delete from Cloudinary
+      if (req.body.documents) {
+        const updatedDocs = JSON.parse(req.body.documents);
+        
+        // Find public_ids that are in the database but NOT in the incoming request
+        const filesToDelete = tender.documents.filter(oldDoc => 
+          !updatedDocs.some(newDoc => newDoc.public_id === oldDoc.public_id)
+        );
+
+        // Delete from Cloudinary physically
+        for (const file of filesToDelete) {
+          if (file.public_id) {
+            await cloudinary.uploader.destroy(file.public_id);
+          }
+        }
+
+        // Update database with the filtered list
+        tender.documents = updatedDocs;
+      }
+
+      // 2. Update text fields
+      const allowed = ['title', 'description', 'estimatedValue', 'emdAmount', 'endDate', 'category'];
+      allowed.forEach(key => {
+        if (req.body[key] !== undefined) {
+          tender[key] = (key === 'estimatedValue' || key === 'emdAmount') 
+            ? Number(req.body[key]) 
+            : req.body[key];
+        }
+      });
+
+      // 3. Handle tags
+      if (req.body.tags) {
+        tender.tags = req.body.tags.split(',').map(t => t.trim()).filter(t => t);
+      }
+
+      // 4. Append new file uploads
+      if (req.files && req.files.length > 0) {
+        const newDocs = req.files.map(file => ({
+          url: file.path,
+          public_id: file.filename, // This is the Cloudinary public_id
+          name: file.originalname,
+          fileType: file.mimetype
+        }));
+        tender.documents = [...(tender.documents || []), ...newDocs];
+      }
+
+      const saved = await tender.save();
+      res.json(saved);
+    } catch (err) {
+      console.error('Update error:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+// --- PUBLISH TENDER ---
+router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
+  try {
+    const tender = await Tender.findOne({ 
+      _id: req.params.id, 
+      ownerCompany: req.user.companyId,
+      status: 'DRAFT'
+    });
+    
+    if (!tender) return res.status(404).json({ message: 'Draft tender not found or already published' });
+
+    // 1. UPDATE DOCUMENTS LIST IF PROVIDED
+    // This captures the files you kept in the confirmation dialog
+    if (req.body.documents) {
+      tender.documents = req.body.documents;
+    }
+
+    // 2. Logic Check: Documents are required for publishing
+    if (!tender.documents || tender.documents.length === 0) {
+      return res.status(400).json({ message: 'At least one document is required to publish' });
+    }
+
+    // 3. Validate with Joi (Strict Check)
+    const { error } = publishTenderSchema.validate(tender.toObject(), { allowUnknown: true });
+    if (error) {
+      return res.status(400).json({ 
+        message: 'Validation failed - complete all fields before publishing',
+        details: error.details.map(d => d.message) 
+      });
+    }
+
+    // 4. Finalize Publication
+    tender.status = 'PUBLISHED';
+    tender.startDate = new Date();
+    await tender.save();
+    
+    res.json({ message: 'Tender is now LIVE', tender });
+  } catch (err) {
+    console.error('Publish error:', err);
+    res.status(500).json({ message: 'Publishing failed', error: err.message });
+  }
+});
+// --- DATA FETCHING ROUTES ---
+
+// --- backend/routes/tenderRoutes.js ---
+
+// --- backend/routes/tenderRoutes.js ---
+
+// CHANGE THIS LINE to match your frontend error: /my-posted-tenders
+// --- backend/routes/tenderRoutes.js ---
+
+router.get(['/my-company', '/my-posted-tenders'], auth, async (req, res) => {
+  try {
+    const { search, category, sortBy, statusFilter } = req.query;
+    const userId = req.user.id;
+    const companyId = req.user.companyId;
+
+    let andConditions = [];
+
+    // A. Role-Based Privacy Logic
+    if (req.user.role === 'SUPER_ADMIN') {
+        // Super Admin sees everything - no base condition
+    } else if (req.user.role === 'TENDER_POSTER') {
+      // Poster: ONLY their own stuff within their company
+      andConditions.push({ ownerCompany: companyId });
+      andConditions.push({ createdBy: userId });
+    } else {
+      // Admin/Staff: Everything in company EXCEPT other people's drafts
+      andConditions.push({ ownerCompany: companyId });
+      andConditions.push({
+        $or: [
+          { status: { $ne: 'DRAFT' } },
+          { createdBy: userId }
+        ]
+      });
+    }
+
+    // B. Filters
+    if (category && category !== 'All') andConditions.push({ category });
+    if (statusFilter && statusFilter !== 'All') andConditions.push({ status: statusFilter });
+
+    // C. Search
+    if (search && search.trim() !== "") {
+      const searchRegex = { $regex: search, $options: 'i' };
+      andConditions.push({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex }
+        ]
+      });
+    }
+
+    const finalQuery = andConditions.length > 0 ? { $and: andConditions } : {};
+
+    // D. Sorting
+    let sortOption = { createdAt: -1 };
+    if (sortBy === 'oldest') sortOption = { createdAt: 1 };
+    if (sortBy === 'value_high') sortOption = { estimatedValue: -1 };
+    if (sortBy === 'value_low') sortOption = { estimatedValue: 1 };
+    if (sortBy === 'deadline') sortOption = { endDate: 1 };
+
+    const tenders = await Tender.find(finalQuery)
+      .populate({ path: 'bids', match: { status: 'SUBMITTED' } })
+      .sort(sortOption)
+      .lean();
+
+    res.json(tenders);
+  } catch (err) {
+    console.error('TENDER FETCH ERROR:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 router.get('/available', auth, async (req, res) => {
   try {
-    const tenders = await Tender.find({ status: 'PUBLISHED' })
+    // Logic: 
+    // 1. Status must be PUBLISHED
+    // 2. ownerCompany must NOT be the user's current companyId
+    const query = { 
+      status: 'PUBLISHED',
+      ownerCompany: { $ne: req.user.companyId } 
+    };
+
+    const tenders = await Tender.find(query)
       .populate('ownerCompany', 'name industry')
       .sort({ createdAt: -1 })
       .lean();
 
     res.json(tenders);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) { 
+    console.error('Fetch available tenders error:', err);
+    res.status(500).json({ message: 'Server error' }); 
   }
 });
-
-// GET /api/tenders/my-posted-tenders - Get tenders posted by the current user
-router.get('/my-posted-tenders', auth, requireRole('TENDER_POSTER'), async (req, res) => {
-  try {
-    if (!req.user || !req.user.id) return res.status(401).json({ message: "Unauthorized" });
-
-    // Only show tenders created by the current user
-    const query = { createdBy: req.user.id };
-
-    const tenders = await Tender.find(query)
-      .populate('ownerCompany', 'name')
-      .populate('createdBy', 'name')
-      .populate('bids') 
-      .sort({ createdAt: -1 })
-      .lean();
-    
-    res.json(tenders || []);
-    console.log(tenders);
-  } catch (err) {
-    console.error('BACKEND ERROR IN MY-POSTED-TENDERS:', err); 
-    res.status(500).json({ message: "Internal Server Error", details: err.message });
-  }
-});
-// PATCH /api/tenders/:id/close
-router.patch('/:id/close', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
-  try {
-    const updatedTender = await Tender.findOneAndUpdate(
-      { ...getTenderQuery(req, req.params.id), status: 'PUBLISHED' },
-      { $set: { status: 'CLOSED' } },
-      { new: true }
-    ).lean();
-
-    if (!updatedTender) return res.status(404).json({ message: 'Active tender not found' });
-    res.json(updatedTender);
-  } catch (err) {
-    res.status(500).json({ message: 'Close error' });
-  }
-});
-// PATCH /api/tenders/:id/publish
-router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
-  try {
-    const updatedTender = await Tender.findOneAndUpdate(
-      { ...getTenderQuery(req, req.params.id), status: 'DRAFT' },
-      { $set: { status: 'PUBLISHED', startDate: new Date() } },
-      { new: true, runValidators: true }
-    ).lean();
-
-    if (!updatedTender) return res.status(404).json({ message: 'Draft tender not found or unauthorized' });
-    res.json(updatedTender);
-  } catch (err) {
-    res.status(500).json({ message: 'Publish error' });
-  }
-});
-
 
 router.get('/:id', auth, async (req, res) => {
   try {
-    // 1. Fetch the tender with company and creator details
     const tender = await Tender.findById(req.params.id)
       .populate('ownerCompany', 'name industry')
       .populate('createdBy', 'name')
       .populate({
         path: 'bids',
-        // Populate the bidder's company info so the poster knows who bid
         populate: { path: 'bidderCompany', select: 'name industry' } 
-      })
-      .lean();
+      }).lean();
 
-    if (!tender) {
-      return res.status(404).json({ message: 'Tender not found' });
-    }
+    if (!tender) return res.status(404).json({ message: 'Tender not found' });
 
-    // 2. Access Control Logic
-    // If the user is a BIDDER, they shouldn't see everyone else's bids.
+    // Filter bids visibility based on role
     if (req.user.role === 'BIDDER') {
-      // Filter bids so a bidder only sees their OWN bid on this tender
-      tender.bids = tender.bids.filter(
-        bid => bid.bidderCompany?._id.toString() === req.user.companyId.toString()
+      tender.bids = tender.bids.filter(bid => 
+        bid.bidderCompany?._id.toString() === req.user.companyId.toString()
       );
-    } 
-    // If it's the POSTER or ADMIN of the company that owns the tender, they see ALL bids.
-    else if (req.user.companyId.toString() !== tender.ownerCompany._id.toString() && req.user.role !== 'SUPER_ADMIN') {
-      // Optional: Prevent users from other companies from snooping on tender details
-      return res.status(403).json({ message: 'Unauthorized access to tender details' });
     }
-
     res.json(tender);
-  } catch (err) {
-    console.error('Fetch tender error:', err);
-    res.status(500).json({ message: 'Server error fetching tender details' });
-  }
+  } catch (err) { res.status(500).json({ message: 'Fetch error' }); }
 });
-// PATCH /api/tenders/:id/award
-router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
+
+// --- STATUS MANAGEMENT ---
+
+router.patch('/:id/close', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
+  try {
+    const updated = await Tender.findOneAndUpdate(
+      { ...getTenderQuery(req, req.params.id), status: 'PUBLISHED' },
+      { $set: { status: 'CLOSED' } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Active tender not found' });
+    res.json(updated);
+  } catch (err) { res.status(500).json({ message: 'Close error' }); }
+});
+
+router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
   try {
     const { winningBidId } = req.body;
-    if (!winningBidId) return res.status(400).json({ message: 'winningBidId required' });
+    if (!winningBidId) return res.status(400).json({ message: 'Winning Bid ID is required' });
 
     const tender = await Tender.findOneAndUpdate(
       { ...getTenderQuery(req, req.params.id), status: 'CLOSED' },
       { $set: { status: 'AWARDED' } },
       { new: true }
-    ).lean();
+    );
 
     if (!tender) return res.status(404).json({ message: 'Closed tender not found' });
 
-    // 2. Accept Winning Bid
     await Bid.findByIdAndUpdate(winningBidId, { status: 'ACCEPTED' });
-
-    // 3. Reject Others (Updated to target 'SUBMITTED' bids)
     await Bid.updateMany(
-      { 
-        tender: tender._id, 
-        _id: { $ne: winningBidId }, 
-        status: { $in: ['SUBMITTED', 'DRAFT'] } // Catch all other active bids
-      },
+      { tender: tender._id, _id: { $ne: winningBidId }, status: 'SUBMITTED' },
       { $set: { status: 'REJECTED' } }
     );
 
     res.json({ message: 'Tender awarded successfully', tender });
-  } catch (err) {
-    res.status(500).json({ message: 'Award error' });
-  }
+  } catch (err) { res.status(500).json({ message: 'Award error' }); }
 });
 
-// PATCH /api/tenders/:id - Generic Update
-router.patch('/:id', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
+// Add this temporarily to tenderRoutes.js
+router.get('/admin/sync-bids', auth, requireRole('SUPER_ADMIN'), async (req, res) => {
   try {
-    const tender = await Tender.findOne(getTenderQuery(req, req.params.id));
-    
-    if (!tender) return res.status(404).json({ message: 'Tender not found' });
-    if (tender.status !== 'DRAFT') return res.status(400).json({ message: 'Only DRAFT can be updated' });
-
-    const allowed = ['title', 'description', 'budgetMin', 'budgetMax', 'endDate', 'category'];
-    Object.keys(req.body).forEach(key => {
-      if (allowed.includes(key)) tender[key] = req.body[key];
-    });
-
-    if (req.body.tags && typeof req.body.tags === 'string') {
-      tender.tags = req.body.tags.split(',').map(t => t.trim()).filter(t => t);
-    }
-
-    const saved = await tender.save();
-    res.json(saved.toObject());
+    const bids = await Bid.find({});
+    const updates = bids.map(bid => 
+      Tender.findByIdAndUpdate(bid.tender, { 
+        $addToSet: { bids: bid._id } 
+      })
+    );
+    await Promise.all(updates);
+    res.json({ message: `Synced ${bids.length} bids to their respective tenders.` });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ error: err.message });
   }
 });
 

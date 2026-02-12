@@ -7,11 +7,16 @@ const authRoutes = require("./routes/auth.routes");
 const tenderRoutes = require("./routes/tender.routes");
 const bidRoutes = require("./routes/bid.routes");
 const userRoutes = require("./routes/user.routes");
+const { cloudinary } = require("./utils/cloudinary");
 const app = express();
 
 //Middleware
 app.use(cors());
 app.use(express.json());
+// Cloudinary connection check
+cloudinary.api.ping()
+  .then(() => console.log('Connected to Cloudinary'))
+  .catch(err => console.error('Error connecting to Cloudinary:', err));
 
 //Health check route
 app.get("/api/health", (req, res) => {

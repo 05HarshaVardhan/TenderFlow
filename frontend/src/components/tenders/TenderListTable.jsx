@@ -1,3 +1,5 @@
+
+//frontend\src\components\tenders\TenderListTable.jsx
 import React from 'react';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -50,7 +52,7 @@ export default function TenderListTable({ tenders, onAction }) {
                 </Badge>
               </TableCell>
               <TableCell className="text-zinc-300">
-                ${tender.budgetMax?.toLocaleString()}
+                ${tender.estimatedValue?.toLocaleString() || '0'}
               </TableCell>
               <TableCell className="text-zinc-400 text-sm">
                 {new Date(tender.endDate).toLocaleDateString()}

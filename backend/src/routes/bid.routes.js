@@ -4,7 +4,8 @@ const Tender = require('../models/Tender');
 const auth = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const validate = require('../middleware/validate');
-const { createBidSchema } = require('../validation/bidSchema');
+const { uploadFields } = require('../middleware/upload');
+const { submitBidSchema } = require('../validation/bidSchema');
 
 const router = express.Router();
 
@@ -25,16 +26,13 @@ router.get('/my-company', auth, async (req, res) => {
     let query = {};
 
     if (req.user.role === 'COMPANY_ADMIN') {
-      // For COMPANY_ADMIN, show all bids from their company
       query = { bidderCompany: req.user.companyId };
     } else if (req.user.role === 'BIDDER') {
-      // For BIDDER, show only their own bids
       query = { 
         bidderCompany: req.user.companyId,
         submittedBy: req.user.id 
       };
     } else if (req.user.role !== 'SUPER_ADMIN') {
-      // For other roles, return empty array (or 403 if preferred)
       return res.json([]);
     }
 
@@ -47,7 +45,7 @@ router.get('/my-company', auth, async (req, res) => {
           { path: 'createdBy', select: 'name email' }
         ]
       })
-      .populate('submittedBy', 'name email') // Add this to show who submitted the bid
+      .populate('submittedBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -130,88 +128,174 @@ router.get('/tender/:tenderId', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTE
   }
 });
 
-// POST /api/bids - Create draft or submitted bid
-router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), validate(createBidSchema), async (req, res) => {
+// POST /api/bids - Create DRAFT bid
+router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), 
+  uploadFields([
+    { name: 'technicalDocs', maxCount: 5 },
+    { name: 'financialDocs', maxCount: 5 }, // Increased to 5
+    { name: 'emdReceipt', maxCount: 1 }
+  ]), async (req, res) => {
   try {
-    const { tenderId, status = 'DRAFT' } = req.body;
+    const getFileData = (field) => req.files[field] ? req.files[field].map(f => ({
+      url: f.path, public_id: f.filename, name: f.originalname
+    })) : [];
 
-    const tender = await Tender.findById(tenderId);
-    if (!tender) return res.status(404).json({ message: 'Tender not found' });
-    if (tender.status !== 'PUBLISHED') {
-      return res.status(400).json({ message: 'Can only bid on PUBLISHED tenders' });
-    }
+    const existingDraft = await Bid.findOne({
+      tender: req.body.tenderId,
+      bidderCompany: req.user.companyId,
+      status: 'DRAFT'
+    });
 
-    if (tender.ownerCompany.toString() === req.user.companyId.toString()) {
-      return res.status(400).json({ message: 'Owner company cannot bid on its own tender' });
-    }
-
-    const existingAny = await Bid.findOne({ tender: tenderId, bidderCompany: req.user.companyId }).lean();
-    if (existingAny) {
-      return res.status(400).json({ message: 'A bid already exists. Please edit your existing bid.' });
+    if (existingDraft) {
+      return res.status(400).json({ 
+        message: 'A draft already exists for this tender. Please update the existing draft instead.',
+        existingId: existingDraft._id 
+      });
     }
 
     const bid = await Bid.create({
       ...req.body,
-      tender: tenderId,
+      amount: Number(req.body.amount || 0),
+      deliveryDays: Number(req.body.deliveryDays || 0),
+      status: 'DRAFT',
+      tender: req.body.tenderId,
       bidderCompany: req.user.companyId,
       submittedBy: req.user.id,
-      status: req.body.status || 'DRAFT', 
-      submittedAt: req.body.status === 'SUBMITTED' ? new Date() : null
+      technicalDocs: getFileData('technicalDocs'),
+      financialDocs: getFileData('financialDocs'),
+      emdPaymentProof: {
+        transactionId: req.body.transactionId,
+        paymentMode: req.body.paymentMode,
+        receiptDoc: getFileData('emdReceipt')[0]
+      }
     });
-
-    await Tender.findByIdAndUpdate(tenderId, {
-      $push: { bids: bid._id }
-    });
-
-    res.status(201).json(bid.toObject());
+    await Tender.findByIdAndUpdate(req.body.tenderId, {
+  $addToSet: { bids: bid._id }
+});
+    res.status(201).json(bid);
   } catch (err) {
-    console.error('Create bid error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Bid draft error:', err);
+    res.status(500).json({ message: 'Bid draft failed', error: err.message });
   }
 });
 
-// PATCH /api/bids/:id - Update details
-router.patch('/:id', auth, requireRole('BIDDER', 'COMPANY_ADMIN', 'SUPER_ADMIN'), async (req, res) => {
+// PATCH /api/bids/:id - Update DRAFT bid with Sync Logic
+router.patch('/:id', 
+  auth, 
+  requireRole('BIDDER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
+  uploadFields([
+    { name: 'technicalDocs', maxCount: 5 },
+    { name: 'financialDocs', maxCount: 5 }, // Increased to 5
+    { name: 'emdReceipt', maxCount: 1 }
+  ]), 
+  async (req, res) => {
   try {
     const bid = await Bid.findOne(getBidQuery(req, req.params.id)).populate('tender');
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
-    if (bid.status !== 'DRAFT') return res.status(400).json({ message: 'Only DRAFT bids can be edited' });
-    if (bid.tender.status !== 'PUBLISHED') return res.status(400).json({ message: 'Tender is no longer open' });
+    if (bid.status !== 'DRAFT') {
+      return res.status(400).json({ message: 'Only DRAFT bids can be edited' });
+    }
+    
+    if (bid.tender.status !== 'PUBLISHED') {
+      return res.status(400).json({ message: 'Tender is no longer open for editing' });
+    }
 
-    const allowed = ['amount', 'deliveryDays', 'validTill', 'documents', 'notes', 'status'];
+    // 1. Update Basic Fields
+    const allowed = ['amount', 'deliveryDays', 'notes'];
     allowed.forEach(field => {
-      if (req.body[field] !== undefined) bid[field] = req.body[field];
+      if (req.body[field] !== undefined) {
+        bid[field] = (field === 'amount' || field === 'deliveryDays') 
+          ? Number(req.body[field]) 
+          : req.body[field];
+      }
     });
 
-    if (req.body.status === 'SUBMITTED') {
-      bid.submittedAt = new Date();
+    // 2. Handle EMD Meta Data
+    if (!bid.emdPaymentProof) bid.emdPaymentProof = {};
+    if (req.body.transactionId) bid.emdPaymentProof.transactionId = req.body.transactionId;
+    if (req.body.paymentMode) bid.emdPaymentProof.paymentMode = req.body.paymentMode;
+
+    // 3. Helper to format new files
+    const getFileData = (field) => req.files?.[field] ? req.files[field].map(f => ({
+      url: f.path, public_id: f.filename, name: f.originalname
+    })) : [];
+
+    // 4. File Sync (Kept Files + Newly Uploaded Files)
+    if (req.body.keepTechnicalDocs) {
+      const kept = JSON.parse(req.body.keepTechnicalDocs);
+      bid.technicalDocs = [...kept, ...getFileData('technicalDocs')];
+    }
+
+    if (req.body.keepFinancialDocs) {
+      const kept = JSON.parse(req.body.keepFinancialDocs);
+      bid.financialDocs = [...kept, ...getFileData('financialDocs')];
+    }
+
+    if (req.body.keepEmdReceipt) {
+      const keptEmd = JSON.parse(req.body.keepEmdReceipt);
+      const newEmd = getFileData('emdReceipt')[0];
+      // Priority to new upload; if no new upload, keep the old one (if not deleted)
+      bid.emdPaymentProof.receiptDoc = newEmd || keptEmd || null;
     }
 
     const saved = await bid.save();
-    res.json(saved.toObject());
+    res.json(saved);
   } catch (err) {
-    res.status(500).json({ message: 'Update failed' });
+    console.error('Update error:', err);
+    res.status(500).json({ message: 'Update failed', error: err.message });
   }
 });
 
-// PATCH /api/bids/:id/submit
-router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN', 'SUPER_ADMIN'), async (req, res) => {
+// PATCH /api/bids/:id/submit - STRICT VALIDATION
+router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, res) => {
   try {
-    const query = { ...getBidQuery(req, req.params.id), status: 'DRAFT' };
+    const bid = await Bid.findOne({ 
+      _id: req.params.id, 
+      bidderCompany: req.user.companyId,
+      status: 'DRAFT'
+    }).populate('tender');
     
-    const bid = await Bid.findOneAndUpdate(
-      query,
-      { $set: { status: 'SUBMITTED', submittedAt: new Date() } },
-      { new: true }
-    ).populate('tender').lean();
-
     if (!bid) return res.status(404).json({ message: 'Draft bid not found' });
-    if (bid.tender.status !== 'PUBLISHED') return res.status(400).json({ message: 'Tender is closed' });
+    if (bid.tender.status !== 'PUBLISHED') return res.status(400).json({ message: 'Tender is no longer accepting bids' });
 
-    res.json(bid);
+    // STRICT VALIDATION
+    const { error } = submitBidSchema.validate(bid.toObject(), { allowUnknown: true });
+    if (error) {
+      return res.status(400).json({ 
+        message: 'Validation failed - please complete all required fields',
+        errors: error.details.map(d => ({ field: d.path[0], message: d.message }))
+      });
+    }
+
+    if (!bid.technicalDocs || bid.technicalDocs.length === 0) {
+      return res.status(400).json({ message: 'Technical envelope is required' });
+    }
+
+    if (!bid.financialDocs || bid.financialDocs.length === 0) {
+      return res.status(400).json({ message: 'Financial envelope is required' });
+    }
+
+    if (!bid.emdPaymentProof?.receiptDoc?.url) {
+      return res.status(400).json({ message: 'EMD receipt is required' });
+    }
+
+    // Anomaly detection
+    const lowerLimit = bid.tender.estimatedValue * 0.7; 
+    if (bid.amount < lowerLimit) {
+      bid.anomalyScore = 85;
+      bid.aiNotes = "Alert: Bid significantly below estimated value";
+    }
+
+    bid.status = 'SUBMITTED';
+    bid.submittedAt = new Date();
+    await bid.save();
+    await Tender.findByIdAndUpdate(bid.tender._id, {
+  $addToSet: { bids: bid._id }
+});
+    res.json({ message: 'Bid submitted successfully!', bid });
   } catch (err) {
-    res.status(500).json({ message: 'Submission failed' });
+    res.status(500).json({ message: 'Submission error', error: err.message });
   }
 });
 
@@ -222,31 +306,23 @@ router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', '
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
     const tender = bid.tender;
-
-    // AUTHORIZATION LOGIC:
-    // 1. Super Admin can always award
-    // 2. Company Admin can award if they belong to the owner company
-    // 3. Tender Poster can award if they are the 'createdBy' user of that tender
     const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
     const isCompanyAdmin = req.user.role === 'COMPANY_ADMIN' && tender.ownerCompany.toString() === req.user.companyId.toString();
     const isTenderPoster = req.user.role === 'TENDER_POSTER' && tender.createdBy.toString() === req.user.id.toString();
 
     if (!isSuperAdmin && !isCompanyAdmin && !isTenderPoster) {
-      return res.status(403).json({ message: 'Unauthorized: Only the tender creator or company admin can award this.' });
+      return res.status(403).json({ message: 'Unauthorized' });
     }
 
     if (tender.status !== 'PUBLISHED') {
       return res.status(400).json({ message: 'Tender is not in a state to be awarded.' });
     }
 
-    // Update the winning bid
     bid.status = 'ACCEPTED';
     await bid.save();
 
-    // Mark tender as awarded
     await Tender.findByIdAndUpdate(tender._id, { status: 'AWARDED' });
 
-    // Reject all other bids for this specific tender
     await Bid.updateMany(
       { tender: tender._id, _id: { $ne: bid._id }, status: 'SUBMITTED' },
       { status: 'REJECTED' }
@@ -265,14 +341,12 @@ router.patch('/:id/reject', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
     const tender = bid.tender;
-
-    // Reuse the same authorization logic
     const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
     const isCompanyAdmin = req.user.role === 'COMPANY_ADMIN' && tender.ownerCompany.toString() === req.user.companyId.toString();
     const isTenderPoster = req.user.role === 'TENDER_POSTER' && tender.createdBy.toString() === req.user.id.toString();
 
     if (!isSuperAdmin && !isCompanyAdmin && !isTenderPoster) {
-      return res.status(403).json({ message: 'Unauthorized to reject bids for this tender.' });
+      return res.status(403).json({ message: 'Unauthorized' });
     }
 
     bid.status = 'REJECTED';
