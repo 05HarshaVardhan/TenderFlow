@@ -23,23 +23,26 @@ const getBidQuery = (req, bidId) => {
 // GET /api/bids/my-company - For Bidder and Company Admin Dashboard
 router.get('/my-company', auth, async (req, res) => {
   try {
+    const { status } = req.query;
     let query = {};
 
     if (req.user.role === 'COMPANY_ADMIN') {
       query = { bidderCompany: req.user.companyId };
     } else if (req.user.role === 'BIDDER') {
-      query = { 
+      query = {
         bidderCompany: req.user.companyId,
-        submittedBy: req.user.id 
+        submittedBy: req.user.id
       };
     } else if (req.user.role !== 'SUPER_ADMIN') {
       return res.json([]);
     }
-
+    if (status && status !== 'All') {
+      query.status = status;
+    }
     const bids = await Bid.find(query)
       .populate({
         path: 'tender',
-        select: 'title status referenceNumber ownerCompany createdBy',
+        select: 'title status referenceNumber ownerCompany createdBy budget estimatedValue', 
         populate: [
           { path: 'ownerCompany', select: 'name logo' },
           { path: 'createdBy', select: 'name email' }
@@ -113,9 +116,9 @@ router.get('/tender/:tenderId', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTE
     const tender = await Tender.findOne(tenderQuery).lean();
     if (!tender) return res.status(404).json({ message: 'Tender not found or unauthorized' });
 
-    const bids = await Bid.find({ 
+    const bids = await Bid.find({
       tender: tender._id,
-      status: { $ne: 'DRAFT' } 
+      status: { $ne: 'DRAFT' }
     })
       .populate('bidderCompany', 'name industry')
       .populate('submittedBy', 'name email')
@@ -129,140 +132,149 @@ router.get('/tender/:tenderId', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTE
 });
 
 // POST /api/bids - Create DRAFT bid
-router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), 
+router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'),
   uploadFields([
     { name: 'technicalDocs', maxCount: 5 },
     { name: 'financialDocs', maxCount: 5 }, // Increased to 5
     { name: 'emdReceipt', maxCount: 1 }
   ]), async (req, res) => {
-  try {
-    const getFileData = (field) => req.files[field] ? req.files[field].map(f => ({
-      url: f.path, public_id: f.filename, name: f.originalname
-    })) : [];
-
-    const existingDraft = await Bid.findOne({
-      tender: req.body.tenderId,
-      bidderCompany: req.user.companyId,
-      status: 'DRAFT'
-    });
-
-    if (existingDraft) {
-      return res.status(400).json({ 
-        message: 'A draft already exists for this tender. Please update the existing draft instead.',
-        existingId: existingDraft._id 
+    try {
+      const getFileData = (field) => req.files[field] ? req.files[field].map(f => ({
+        url: f.path, public_id: f.filename, name: f.originalname
+      })) : [];
+      const existingWithdrawal = await Bid.findOne({
+        tender: req.body.tender,
+        bidderCompany: req.user.companyId,
+        status: 'WITHDRAWN'
       });
-    }
-
-    const bid = await Bid.create({
-      ...req.body,
-      amount: Number(req.body.amount || 0),
-      deliveryDays: Number(req.body.deliveryDays || 0),
-      status: 'DRAFT',
-      tender: req.body.tenderId,
-      bidderCompany: req.user.companyId,
-      submittedBy: req.user.id,
-      technicalDocs: getFileData('technicalDocs'),
-      financialDocs: getFileData('financialDocs'),
-      emdPaymentProof: {
-        transactionId: req.body.transactionId,
-        paymentMode: req.body.paymentMode,
-        receiptDoc: getFileData('emdReceipt')[0]
+      if (existingWithdrawal) {
+        return res.status(403).json({
+          message: "Your company previously withdrew a bid for this tender and is no longer eligible to participate."
+        });
       }
-    });
-    await Tender.findByIdAndUpdate(req.body.tenderId, {
-  $addToSet: { bids: bid._id }
-});
-    res.status(201).json(bid);
-  } catch (err) {
-    console.error('Bid draft error:', err);
-    res.status(500).json({ message: 'Bid draft failed', error: err.message });
-  }
-});
+      const existingDraft = await Bid.findOne({
+        tender: req.body.tenderId,
+        bidderCompany: req.user.companyId,
+        status: 'DRAFT'
+      });
+
+      if (existingDraft) {
+        return res.status(400).json({
+          message: 'A draft already exists for this tender. Please update the existing draft instead.',
+          existingId: existingDraft._id
+        });
+      }
+
+      const bid = await Bid.create({
+        ...req.body,
+        amount: Number(req.body.amount || 0),
+        deliveryDays: Number(req.body.deliveryDays || 0),
+        status: 'DRAFT',
+        tender: req.body.tenderId,
+        bidderCompany: req.user.companyId,
+        submittedBy: req.user.id,
+        technicalDocs: getFileData('technicalDocs'),
+        financialDocs: getFileData('financialDocs'),
+        emdPaymentProof: {
+          transactionId: req.body.transactionId,
+          paymentMode: req.body.paymentMode,
+          receiptDoc: getFileData('emdReceipt')[0]
+        }
+      });
+      await Tender.findByIdAndUpdate(req.body.tenderId, {
+        $addToSet: { bids: bid._id }
+      });
+      res.status(201).json(bid);
+    } catch (err) {
+      console.error('Bid draft error:', err);
+      res.status(500).json({ message: 'Bid draft failed', error: err.message });
+    }
+  });
 
 // PATCH /api/bids/:id - Update DRAFT bid with Sync Logic
-router.patch('/:id', 
-  auth, 
+router.patch('/:id',
+  auth,
   requireRole('BIDDER', 'COMPANY_ADMIN', 'SUPER_ADMIN'),
   uploadFields([
     { name: 'technicalDocs', maxCount: 5 },
     { name: 'financialDocs', maxCount: 5 }, // Increased to 5
     { name: 'emdReceipt', maxCount: 1 }
-  ]), 
+  ]),
   async (req, res) => {
-  try {
-    const bid = await Bid.findOne(getBidQuery(req, req.params.id)).populate('tender');
-    if (!bid) return res.status(404).json({ message: 'Bid not found' });
+    try {
+      const bid = await Bid.findOne(getBidQuery(req, req.params.id)).populate('tender');
+      if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
-    if (bid.status !== 'DRAFT') {
-      return res.status(400).json({ message: 'Only DRAFT bids can be edited' });
-    }
-    
-    if (bid.tender.status !== 'PUBLISHED') {
-      return res.status(400).json({ message: 'Tender is no longer open for editing' });
-    }
-
-    // 1. Update Basic Fields
-    const allowed = ['amount', 'deliveryDays', 'notes'];
-    allowed.forEach(field => {
-      if (req.body[field] !== undefined) {
-        bid[field] = (field === 'amount' || field === 'deliveryDays') 
-          ? Number(req.body[field]) 
-          : req.body[field];
+      if (bid.status !== 'DRAFT') {
+        return res.status(400).json({ message: 'Only DRAFT bids can be edited' });
       }
-    });
 
-    // 2. Handle EMD Meta Data
-    if (!bid.emdPaymentProof) bid.emdPaymentProof = {};
-    if (req.body.transactionId) bid.emdPaymentProof.transactionId = req.body.transactionId;
-    if (req.body.paymentMode) bid.emdPaymentProof.paymentMode = req.body.paymentMode;
+      if (bid.tender.status !== 'PUBLISHED') {
+        return res.status(400).json({ message: 'Tender is no longer open for editing' });
+      }
 
-    // 3. Helper to format new files
-    const getFileData = (field) => req.files?.[field] ? req.files[field].map(f => ({
-      url: f.path, public_id: f.filename, name: f.originalname
-    })) : [];
+      // 1. Update Basic Fields
+      const allowed = ['amount', 'deliveryDays', 'notes'];
+      allowed.forEach(field => {
+        if (req.body[field] !== undefined) {
+          bid[field] = (field === 'amount' || field === 'deliveryDays')
+            ? Number(req.body[field])
+            : req.body[field];
+        }
+      });
 
-    // 4. File Sync (Kept Files + Newly Uploaded Files)
-    if (req.body.keepTechnicalDocs) {
-      const kept = JSON.parse(req.body.keepTechnicalDocs);
-      bid.technicalDocs = [...kept, ...getFileData('technicalDocs')];
+      // 2. Handle EMD Meta Data
+      if (!bid.emdPaymentProof) bid.emdPaymentProof = {};
+      if (req.body.transactionId) bid.emdPaymentProof.transactionId = req.body.transactionId;
+      if (req.body.paymentMode) bid.emdPaymentProof.paymentMode = req.body.paymentMode;
+
+      // 3. Helper to format new files
+      const getFileData = (field) => req.files?.[field] ? req.files[field].map(f => ({
+        url: f.path, public_id: f.filename, name: f.originalname
+      })) : [];
+
+      // 4. File Sync (Kept Files + Newly Uploaded Files)
+      if (req.body.keepTechnicalDocs) {
+        const kept = JSON.parse(req.body.keepTechnicalDocs);
+        bid.technicalDocs = [...kept, ...getFileData('technicalDocs')];
+      }
+
+      if (req.body.keepFinancialDocs) {
+        const kept = JSON.parse(req.body.keepFinancialDocs);
+        bid.financialDocs = [...kept, ...getFileData('financialDocs')];
+      }
+
+      if (req.body.keepEmdReceipt) {
+        const keptEmd = JSON.parse(req.body.keepEmdReceipt);
+        const newEmd = getFileData('emdReceipt')[0];
+        // Priority to new upload; if no new upload, keep the old one (if not deleted)
+        bid.emdPaymentProof.receiptDoc = newEmd || keptEmd || null;
+      }
+
+      const saved = await bid.save();
+      res.json(saved);
+    } catch (err) {
+      console.error('Update error:', err);
+      res.status(500).json({ message: 'Update failed', error: err.message });
     }
-
-    if (req.body.keepFinancialDocs) {
-      const kept = JSON.parse(req.body.keepFinancialDocs);
-      bid.financialDocs = [...kept, ...getFileData('financialDocs')];
-    }
-
-    if (req.body.keepEmdReceipt) {
-      const keptEmd = JSON.parse(req.body.keepEmdReceipt);
-      const newEmd = getFileData('emdReceipt')[0];
-      // Priority to new upload; if no new upload, keep the old one (if not deleted)
-      bid.emdPaymentProof.receiptDoc = newEmd || keptEmd || null;
-    }
-
-    const saved = await bid.save();
-    res.json(saved);
-  } catch (err) {
-    console.error('Update error:', err);
-    res.status(500).json({ message: 'Update failed', error: err.message });
-  }
-});
+  });
 
 // PATCH /api/bids/:id/submit - STRICT VALIDATION
 router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, res) => {
   try {
-    const bid = await Bid.findOne({ 
-      _id: req.params.id, 
+    const bid = await Bid.findOne({
+      _id: req.params.id,
       bidderCompany: req.user.companyId,
       status: 'DRAFT'
     }).populate('tender');
-    
+
     if (!bid) return res.status(404).json({ message: 'Draft bid not found' });
     if (bid.tender.status !== 'PUBLISHED') return res.status(400).json({ message: 'Tender is no longer accepting bids' });
 
     // STRICT VALIDATION
     const { error } = submitBidSchema.validate(bid.toObject(), { allowUnknown: true });
     if (error) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Validation failed - please complete all required fields',
         errors: error.details.map(d => ({ field: d.path[0], message: d.message }))
       });
@@ -281,7 +293,7 @@ router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async 
     }
 
     // Anomaly detection
-    const lowerLimit = bid.tender.estimatedValue * 0.7; 
+    const lowerLimit = bid.tender.estimatedValue * 0.7;
     if (bid.amount < lowerLimit) {
       bid.anomalyScore = 85;
       bid.aiNotes = "Alert: Bid significantly below estimated value";
@@ -291,8 +303,8 @@ router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async 
     bid.submittedAt = new Date();
     await bid.save();
     await Tender.findByIdAndUpdate(bid.tender._id, {
-  $addToSet: { bids: bid._id }
-});
+      $addToSet: { bids: bid._id }
+    });
     res.json({ message: 'Bid submitted successfully!', bid });
   } catch (err) {
     res.status(500).json({ message: 'Submission error', error: err.message });
@@ -376,6 +388,32 @@ router.delete('/:id', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, 
     res.json({ message: 'Bid withdrawn successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Withdrawal failed' });
+  }
+});
+
+// --- WITHDRAW BID ---
+router.patch('/:id/withdraw', auth, async (req, res) => {
+  try {
+    // 1. Find the bid and ensure it belongs to the user's company
+    const bid = await Bid.findOne({
+      _id: req.params.id,
+      bidderCompany: req.user.companyId,
+      status: { $ne: 'WITHDRAWN' } // Cannot withdraw an already withdrawn bid
+    });
+
+    if (!bid) {
+      return res.status(404).json({ message: "Bid not found or already withdrawn" });
+    }
+
+    // 2. Update status to WITHDRAWN
+    bid.status = 'WITHDRAWN';
+    bid.withdrawnAt = new Date();
+    bid.withdrawnBy = req.user.id;
+    await bid.save();
+
+    res.json({ message: "Bid withdrawn. Your company is now ineligible for this tender.", bid });
+  } catch (err) {
+    res.status(500).json({ message: "Withdrawal failed", error: err.message });
   }
 });
 

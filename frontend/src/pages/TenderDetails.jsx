@@ -8,7 +8,7 @@ import {
   Trophy, User, Clock, DollarSign, 
   FileText, Download, ShieldCheck, ExternalLink, 
   Users, CheckCircle2, X, FileIcon, ExternalLink as ExternalLinkIcon,
-  FileDown
+  FileDown, Calendar, CalendarDays, Tag, Hash
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { saveAs } from 'file-saver';
@@ -100,6 +100,82 @@ export default function TenderDetails() {
         </div>
 
         <p className="text-zinc-400 text-lg leading-relaxed mb-8">{tender.description}</p>
+
+        {/* Tender Metadata */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+            <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+              <CalendarDays className="h-4 w-4" />
+              <span>Published</span>
+            </div>
+            <div className="text-white font-medium">
+              {tender.createdAt ? (
+                <>
+                  {new Date(tender.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                  <span className="text-xs text-zinc-500 block mt-1">
+                    {Math.floor((new Date() - new Date(tender.createdAt)) / (1000 * 60 * 60 * 24))} days ago
+                  </span>
+                </>
+              ) : 'N/A'}
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+            <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+              <Clock className="h-4 w-4" />
+              <span>Deadline</span>
+            </div>
+            <div className="text-white font-medium">
+              {tender.endDate ? (
+                <>
+                  {new Date(tender.endDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                  <span className={`text-xs block mt-1 ${
+                    new Date(tender.endDate) < new Date() 
+                      ? 'text-red-400' 
+                      : 'text-zinc-500'
+                  }`}>
+                    {new Date(tender.endDate) > new Date() 
+                      ? `${Math.ceil((new Date(tender.endDate) - new Date()) / (1000 * 60 * 60 * 24))} days remaining`
+                      : 'Deadline passed'}
+                  </span>
+                </>
+              ) : 'Not specified'}
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+            <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+              <DollarSign className="h-4 w-4" />
+              <span>Estimated Value</span>
+            </div>
+            <div className="text-white font-medium">
+              {tender.estimatedValue 
+                ? `$${tender.estimatedValue.toLocaleString()}` 
+                : 'Not specified'}
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+            <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
+              <Hash className="h-4 w-4" />
+              <span>Reference</span>
+            </div>
+            <div className="text-white font-medium">
+              {tender.referenceNumber || 'N/A'}
+            </div>
+          </div>
+        </div>
 
         {/* Document Section */}
         {tender.documents?.length > 0 && (

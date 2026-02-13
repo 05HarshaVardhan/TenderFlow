@@ -1,6 +1,6 @@
 // frontend\src\components\Layout.jsx
-import { useAuth } from '../context/authContext.jsx'
-import { Button } from '@/components/ui/button'
+import { useAuth } from '../context/authContext.jsx';
+import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -8,13 +8,15 @@ import {
   LogOut, 
   User,
   ChevronRight,
-  Search,    // Added
-  Gavel,     // Added
-  Users      // Added
-} from 'lucide-react'
+  Search,
+  Gavel,
+  Users,
+  Bell
+} from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 
-export default function Layout({ children }) {
+// Main layout component that provides the application structure
+function Layout({ children }) {
   const { state, logout } = useAuth()
   const location = useLocation();
 
@@ -59,69 +61,98 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-black text-white">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-800 flex flex-col fixed h-full bg-black">
-        <div className="p-6">
-          <h2 className="text-xl font-bold tracking-tighter flex items-center gap-2">
-            <div className="h-6 w-6 bg-white rounded-md flex items-center justify-center">
-              <div className="h-3 w-3 bg-black rotate-45" />
-            </div>
-            TenderFlow
-          </h2>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-2">
-          {navigation
-            .filter(item => item.roles.includes(state.user?.role)) // Only show allowed links
-            .map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors ${
-                    isActive 
-                      ? 'bg-zinc-900 text-white' 
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-4 w-4" />
-                    <span className="text-sm font-medium">{item.name}</span>
-                  </div>
-                  {isActive && <ChevronRight className="h-3 w-3" />}
-                </Link>
-              );
-            })}
-        </nav>
-
-        <div className="p-4 border-t border-zinc-800 space-y-4">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
-              <User className="h-4 w-4 text-zinc-400" />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{state.user?.name}</p>
-              <p className="text-xs text-zinc-500 truncate capitalize">{state.user?.role?.replace('_', ' ')}</p>
+        {/* Sidebar */}
+        <aside className="w-64 border-r border-zinc-800 flex flex-col fixed h-full bg-black">
+          <div className="p-6">
+            <h2 className="text-xl font-bold tracking-tighter flex items-center gap-2">
+              <div className="h-6 w-6 bg-white rounded-md flex items-center justify-center">
+                <div className="h-3 w-3 bg-black rotate-45" />
+              </div>
+              TenderFlow
+            </h2>
+            
+            {/* Navigation */}
+            <nav className="mt-8 space-y-1">
+              {navigation
+                .filter(item => item.roles.includes(state.user?.role))
+                .map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                        isActive
+                          ? 'bg-blue-500/10 text-blue-400'
+                          : 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                      }`}
+                    >
+                      <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                      {item.name}
+                      {isActive && (
+                        <ChevronRight className="ml-auto h-4 w-4 text-blue-400" />
+                      )}
+                    </Link>
+                  );
+                })}
+            </nav>
+          </div>
+          
+          {/* User Profile */}
+          <div className="mt-auto p-4 border-t border-zinc-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                  <User className="h-5 w-5 text-zinc-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{state.user?.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    {state.user?.role?.toLowerCase().replace('_', ' ')}
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={logout}
+                className="text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start text-zinc-400 hover:text-red-400 hover:bg-red-400/10"
-            onClick={logout}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </aside>
+        </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 ml-64">
-        <div className="p-8 max-w-6xl mx-auto">
-          {children}
+        {/* Main Content */}
+        <div className="flex-1 ml-64">
+          {/* Top Navigation */}
+          <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+            <div className="flex items-center justify-between h-16 px-6">
+              <h1 className="text-lg font-semibold">
+                {navigation.find(nav => nav.href === location.pathname)?.name || 'Dashboard'}
+              </h1>
+              
+              <div className="flex items-center gap-2">
+                
+                
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <User className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          </header>
+          
+          {/* Page Content */}
+          <main className="p-6">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
-  )
+      </div>
+  );
 }
+
+export default Layout;

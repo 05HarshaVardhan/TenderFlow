@@ -11,7 +11,7 @@ const router = express.Router();
 // Helper to enforce ownership
 const getTenderQuery = (req, tenderId) => {
   let query = { _id: tenderId };
-  
+
   if (req.user.role === 'SUPER_ADMIN') return query;
 
   // Always restrict by company
@@ -29,9 +29,9 @@ const getTenderQuery = (req, tenderId) => {
 router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMultiple('documents', 10), async (req, res) => {
   try {
     const documentData = req.files ? req.files.map(file => ({
-      url: file.path, 
-      public_id: file.filename, 
-      name: file.originalname, 
+      url: file.path,
+      public_id: file.filename,
+      name: file.originalname,
       fileType: file.mimetype
     })) : [];
 
@@ -44,7 +44,7 @@ router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMult
       ownerCompany: req.user.companyId,
       createdBy: req.user.id
     });
-    
+
     res.status(201).json(tender);
   } catch (err) {
     console.error('Draft creation error:', err);
@@ -54,6 +54,8 @@ router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMult
 
 // --- UPDATE TENDER (DRAFT ONLY) ---
 // This handles both text data and new file uploads for editing
+// In the PATCH /:id route, replace the existing document handling code with this:
+
 router.patch('/:id', 
   auth, 
   requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'),
@@ -63,53 +65,97 @@ router.patch('/:id',
       const tender = await Tender.findOne(getTenderQuery(req, req.params.id));
       if (!tender) return res.status(404).json({ message: 'Tender not found' });
 
-      // 1. Identify files to delete from Cloudinary
-      if (req.body.documents) {
-        const updatedDocs = JSON.parse(req.body.documents);
-        
-        // Find public_ids that are in the database but NOT in the incoming request
-        const filesToDelete = tender.documents.filter(oldDoc => 
-          !updatedDocs.some(newDoc => newDoc.public_id === oldDoc.public_id)
-        );
+      // === ADD THE DEBUG LOGS HERE ===
+      console.log('=== REQUEST BODY ===');
+      console.log('req.body:', req.body);
+      console.log('req.files:', req.files ? req.files.map(f => f.originalname) : 'No files');
+      console.log('existingDocuments type:', typeof req.body.existingDocuments);
+      console.log('existingDocuments value:', req.body.existingDocuments);
 
-        // Delete from Cloudinary physically
-        for (const file of filesToDelete) {
-          if (file.public_id) {
-            await cloudinary.uploader.destroy(file.public_id);
+      // 1. Handle document updates and new uploads
+      if (req.files && req.files.length > 0) {
+          console.log('Processing new file uploads...');
+          const newDocs = req.files.map(file => {
+              const doc = {
+                  url: file.path,
+                  public_id: file.filename,
+                  name: file.originalname,
+                  fileType: file.mimetype
+              };
+              console.log('New document:', doc);
+              return doc;
+          });
+          
+          // Handle existing documents
+          let existingDocs = [];
+          if (req.body.existingDocuments) {
+              try {
+                  console.log('Parsing existing documents...');
+                  existingDocs = JSON.parse(req.body.existingDocuments);
+                  console.log('Parsed existing documents:', existingDocs);
+                  
+                  if (!Array.isArray(existingDocs)) {
+                      console.error('existingDocuments is not an array:', existingDocs);
+                      return res.status(400).json({ 
+                          message: 'existingDocuments must be an array',
+                          received: typeof existingDocs
+                      });
+                  }
+              } catch (err) {
+                  console.error('Error parsing existing documents:', err);
+                  return res.status(400).json({ 
+                      message: 'Invalid existingDocuments format',
+                      error: err.message
+                  });
+              }
           }
-        }
-
-        // Update database with the filtered list
-        tender.documents = updatedDocs;
+          
+          console.log('Merging documents. Existing:', existingDocs.length, 'New:', newDocs.length);
+          tender.documents = [...existingDocs, ...newDocs];
+      } else if (req.body.existingDocuments) {
+          console.log('Updating existing documents only...');
+          try {
+              const existingDocs = JSON.parse(req.body.existingDocuments);
+              console.log('Parsed existing documents:', existingDocs);
+              
+              if (!Array.isArray(existingDocs)) {
+                  console.error('existingDocuments is not an array:', existingDocs);
+                  return res.status(400).json({ 
+                      message: 'existingDocuments must be an array',
+                      received: typeof existingDocs
+                  });
+              }
+              
+              console.log('Setting documents to:', existingDocs);
+              tender.documents = existingDocs;
+          } catch (err) {
+              console.error('Error parsing existing documents:', err);
+              return res.status(400).json({ 
+                  message: 'Invalid documents format',
+                  error: err.message
+              });
+          }
+      } else {
+          console.log('No document updates in this request');
       }
 
       // 2. Update text fields
       const allowed = ['title', 'description', 'estimatedValue', 'emdAmount', 'endDate', 'category'];
       allowed.forEach(key => {
-        if (req.body[key] !== undefined) {
-          tender[key] = (key === 'estimatedValue' || key === 'emdAmount') 
-            ? Number(req.body[key]) 
-            : req.body[key];
-        }
+          if (req.body[key] !== undefined) {
+              tender[key] = (key === 'estimatedValue' || key === 'emdAmount') 
+                  ? Number(req.body[key]) 
+                  : req.body[key];
+          }
       });
 
       // 3. Handle tags
       if (req.body.tags) {
-        tender.tags = req.body.tags.split(',').map(t => t.trim()).filter(t => t);
-      }
-
-      // 4. Append new file uploads
-      if (req.files && req.files.length > 0) {
-        const newDocs = req.files.map(file => ({
-          url: file.path,
-          public_id: file.filename, // This is the Cloudinary public_id
-          name: file.originalname,
-          fileType: file.mimetype
-        }));
-        tender.documents = [...(tender.documents || []), ...newDocs];
+          tender.tags = req.body.tags.split(',').map(t => t.trim()).filter(t => t);
       }
 
       const saved = await tender.save();
+      console.log('Tender saved successfully:', saved);
       res.json(saved);
     } catch (err) {
       console.error('Update error:', err);
@@ -119,19 +165,24 @@ router.patch('/:id',
 // --- PUBLISH TENDER ---
 router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
   try {
-    const tender = await Tender.findOne({ 
-      _id: req.params.id, 
+    const tender = await Tender.findOne({
+      _id: req.params.id,
       ownerCompany: req.user.companyId,
       status: 'DRAFT'
     });
-    
+
     if (!tender) return res.status(404).json({ message: 'Draft tender not found or already published' });
 
     // 1. UPDATE DOCUMENTS LIST IF PROVIDED
     // This captures the files you kept in the confirmation dialog
-    if (req.body.documents) {
-      tender.documents = req.body.documents;
+    if (req.body.existingDocuments) {
+      try {
+        tender.documents = JSON.parse(req.body.existingDocuments);
+      } catch {
+        return res.status(400).json({ message: "Invalid existingDocuments JSON" });
+      }
     }
+
 
     // 2. Logic Check: Documents are required for publishing
     if (!tender.documents || tender.documents.length === 0) {
@@ -141,9 +192,9 @@ router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER')
     // 3. Validate with Joi (Strict Check)
     const { error } = publishTenderSchema.validate(tender.toObject(), { allowUnknown: true });
     if (error) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Validation failed - complete all fields before publishing',
-        details: error.details.map(d => d.message) 
+        details: error.details.map(d => d.message)
       });
     }
 
@@ -151,7 +202,7 @@ router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER')
     tender.status = 'PUBLISHED';
     tender.startDate = new Date();
     await tender.save();
-    
+
     res.json({ message: 'Tender is now LIVE', tender });
   } catch (err) {
     console.error('Publish error:', err);
@@ -177,7 +228,7 @@ router.get(['/my-company', '/my-posted-tenders'], auth, async (req, res) => {
 
     // A. Role-Based Privacy Logic
     if (req.user.role === 'SUPER_ADMIN') {
-        // Super Admin sees everything - no base condition
+      // Super Admin sees everything - no base condition
     } else if (req.user.role === 'TENDER_POSTER') {
       // Poster: ONLY their own stuff within their company
       andConditions.push({ ownerCompany: companyId });
@@ -233,9 +284,9 @@ router.get('/available', auth, async (req, res) => {
     // Logic: 
     // 1. Status must be PUBLISHED
     // 2. ownerCompany must NOT be the user's current companyId
-    const query = { 
+    const query = {
       status: 'PUBLISHED',
-      ownerCompany: { $ne: req.user.companyId } 
+      ownerCompany: { $ne: req.user.companyId }
     };
 
     const tenders = await Tender.find(query)
@@ -244,9 +295,9 @@ router.get('/available', auth, async (req, res) => {
       .lean();
 
     res.json(tenders);
-  } catch (err) { 
+  } catch (err) {
     console.error('Fetch available tenders error:', err);
-    res.status(500).json({ message: 'Server error' }); 
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -257,14 +308,14 @@ router.get('/:id', auth, async (req, res) => {
       .populate('createdBy', 'name')
       .populate({
         path: 'bids',
-        populate: { path: 'bidderCompany', select: 'name industry' } 
+        populate: { path: 'bidderCompany', select: 'name industry' }
       }).lean();
 
     if (!tender) return res.status(404).json({ message: 'Tender not found' });
 
     // Filter bids visibility based on role
     if (req.user.role === 'BIDDER') {
-      tender.bids = tender.bids.filter(bid => 
+      tender.bids = tender.bids.filter(bid =>
         bid.bidderCompany?._id.toString() === req.user.companyId.toString()
       );
     }
@@ -313,9 +364,9 @@ router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), 
 router.get('/admin/sync-bids', auth, requireRole('SUPER_ADMIN'), async (req, res) => {
   try {
     const bids = await Bid.find({});
-    const updates = bids.map(bid => 
-      Tender.findByIdAndUpdate(bid.tender, { 
-        $addToSet: { bids: bid._id } 
+    const updates = bids.map(bid =>
+      Tender.findByIdAndUpdate(bid.tender, {
+        $addToSet: { bids: bid._id }
       })
     );
     await Promise.all(updates);

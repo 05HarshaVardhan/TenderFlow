@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, Upload, Loader2, DollarSign, 
+import {
+  X, Upload, Loader2, DollarSign,
   Calendar, FileText, Tag, Briefcase, Plus,
   Trash2, ExternalLink, AlertCircle
 } from "lucide-react";
@@ -96,34 +96,63 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForDraft()) return;
-
     setLoading(true);
     try {
-      const data = new FormData();
-      data.append('documents', JSON.stringify(formData.documents));
-      data.append('title', formData.title);
-      data.append('description', formData.description);
-      data.append('category', formData.category);
-      data.append('estimatedValue', formData.estimatedValue);
-      data.append('emdAmount', formData.emdAmount);
-      data.append('endDate', formData.endDate);
-      data.append('tags', formData.tags);
+        const data = new FormData();
+        
+        console.log('Existing documents:', formData.documents);
+        console.log('New files:', newFiles);
+        
+        if (editData && formData.documents) {
+            console.log('Stringified documents:', JSON.stringify(formData.documents));
+            data.append('existingDocuments', JSON.stringify(formData.documents));
+        }
+        
+        // Append other fields
+        const fields = {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            estimatedValue: formData.estimatedValue,
+            emdAmount: formData.emdAmount,
+            endDate: formData.endDate,
+            tags: formData.tags
+        };
+        
+        Object.entries(fields).forEach(([key, value]) => {
+            console.log(`Appending ${key}:`, value);
+            data.append(key, value);
+        });
 
-      newFiles.forEach(file => data.append('documents', file));
+        // Append new files
+        newFiles.forEach((file, index) => {
+            console.log(`Appending file ${index}:`, file.name);
+            data.append('documents', file);
+        });
 
-      const url = editData ? `/tenders/${editData._id}` : '/tenders';
-      await api[editData ? 'patch' : 'post'](url, data);
-      
-      toast.success(editData ? "Tender updated" : "Draft created successfully");
-      onSuccess();
-      onClose();
+        console.log('Sending FormData:');
+        for (let [key, value] of data.entries()) {
+            console.log(key, value);
+        }
+
+        const url = editData ? `/tenders/${editData._id}` : '/tenders';
+        const response = await api[editData ? 'patch' : 'post'](url, data, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        
+        console.log('Server response:', response.data);
+        onClose();
+        onSuccess();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Operation failed");
+        console.error('Error saving tender:', err);
+        console.error('Error response:', err.response?.data);
+        setError(err.response?.data?.message || 'Failed to save tender');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   if (!isOpen) return null;
 
@@ -143,7 +172,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 text-left">
       <div className="bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50 flex-shrink-0">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -157,24 +186,24 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
 
         {/* Body */}
         <form id="tender-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <FieldLabel label="Tender Title" name="title" />
-              <input 
-                name="title" 
-                value={formData.title} 
-                onChange={handleChange} 
-                className={`w-full bg-zinc-900 border ${errors.title ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`} 
+              <input
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                className={`w-full bg-zinc-900 border ${errors.title ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
               />
             </div>
 
             <div className="space-y-1">
               <FieldLabel label="Category" name="category" />
-              <select 
-                name="category" 
-                value={formData.category} 
-                onChange={handleChange} 
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
                 className={`w-full bg-zinc-900 border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none transition-all`}
               >
                 <option value="">Select Category</option>
@@ -187,12 +216,12 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
 
           <div className="space-y-1">
             <FieldLabel label="Description" name="description" />
-            <textarea 
-              name="description" 
-              rows="3" 
-              value={formData.description} 
-              onChange={handleChange} 
-              className={`w-full bg-zinc-900 border ${errors.description ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg p-4 text-white outline-none transition-all`} 
+            <textarea
+              name="description"
+              rows="3"
+              value={formData.description}
+              onChange={handleChange}
+              className={`w-full bg-zinc-900 border ${errors.description ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg p-4 text-white outline-none transition-all`}
             />
           </div>
 
@@ -207,13 +236,13 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
             </div>
             <div className="space-y-1">
               <FieldLabel label="End Date" name="endDate" />
-              <input 
-                type="date" 
-                name="endDate" 
+              <input
+                type="date"
+                name="endDate"
                 min={today}
-                value={formData.endDate} 
-                onChange={handleChange} 
-                className={`w-full bg-zinc-900 border ${errors.endDate ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`} 
+                value={formData.endDate}
+                onChange={handleChange}
+                className={`w-full bg-zinc-900 border ${errors.endDate ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
               />
             </div>
           </div>

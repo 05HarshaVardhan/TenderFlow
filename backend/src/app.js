@@ -11,7 +11,10 @@ const { cloudinary } = require("./utils/cloudinary");
 const app = express();
 
 //Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',   // exact frontend origin
+  credentials: true                  // REQUIRED for cookies
+}));
 app.use(express.json());
 // Cloudinary connection check
 cloudinary.api.ping()
@@ -26,4 +29,5 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tenders', tenderRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/users', userRoutes);
+
 module.exports = app;
