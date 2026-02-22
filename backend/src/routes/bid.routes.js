@@ -1,11 +1,12 @@
 const express = require('express');
 const Bid = require('../models/Bid');
 const Tender = require('../models/Tender');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const validate = require('../middleware/validate');
 const { uploadFields } = require('../middleware/upload');
 const { submitBidSchema } = require('../validation/bidSchema');
+const { generateBidPreSubmitReview } = require('../services/bidPreSubmitReviewService');
 
 const router = express.Router();
 
@@ -138,10 +139,35 @@ router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'),
     { name: 'financialDocs', maxCount: 5 }, // Increased to 5
     { name: 'emdReceipt', maxCount: 1 }
   ]), async (req, res) => {
+    // Helper function to format file data with safe access to req.files
+    const getFileData = (field) => {
+  if (!req.files) {
+    console.log('No files were uploaded');
+    return [];
+  }
+  
+  // For multiple files
+  if (Array.isArray(req.files[field])) {
+    return req.files[field].map(file => ({
+      url: file.path,
+      public_id: file.filename,
+      name: file.originalname
+    }));
+  }
+  
+  // For single file
+  if (req.files[field]) {
+    return [{
+      url: req.files[field][0].path,
+      public_id: req.files[field][0].filename,
+      name: req.files[field][0].originalname
+    }];
+  }
+  
+  return [];
+};
+    
     try {
-      const getFileData = (field) => req.files[field] ? req.files[field].map(f => ({
-        url: f.path, public_id: f.filename, name: f.originalname
-      })) : [];
       const existingWithdrawal = await Bid.findOne({
         tender: req.body.tender,
         bidderCompany: req.user.companyId,
@@ -184,6 +210,11 @@ router.post('/', auth, requireRole('BIDDER', 'COMPANY_ADMIN'),
       await Tender.findByIdAndUpdate(req.body.tenderId, {
         $addToSet: { bids: bid._id }
       });
+      console.log(bid)
+      // In bid.routes.js, add at the beginning of the route handler:
+console.log('Request body:', req.body);
+console.log('Request files:', req.files);
+console.log('Request headers:', req.headers['content-type']);
       res.status(201).json(bid);
     } catch (err) {
       console.error('Bid draft error:', err);
@@ -252,12 +283,51 @@ router.patch('/:id',
       }
 
       const saved = await bid.save();
+      console.log("this is from patch bid")
+      // In bid.routes.js, add at the beginning of the route handler:
+console.log('Request body:', req.body);
+console.log('Request files:', req.files);
+console.log('Request headers:', req.headers['content-type']);
       res.json(saved);
     } catch (err) {
       console.error('Update error:', err);
       res.status(500).json({ message: 'Update failed', error: err.message });
     }
   });
+
+// GET /api/bids/:id/pre-submit-review
+router.get('/:id/pre-submit-review', auth, requireRole('BIDDER', 'COMPANY_ADMIN', 'SUPER_ADMIN'), async (req, res) => {
+  try {
+    const bid = await Bid.findOne(getBidQuery(req, req.params.id))
+      .populate('tender', 'title category estimatedValue emdAmount status')
+      .lean();
+
+    if (!bid) {
+      return res.status(404).json({ message: 'Bid not found' });
+    }
+
+    if (bid.status !== 'DRAFT') {
+      return res.status(400).json({ message: 'Pre-submit review is available only for draft bids' });
+    }
+
+    if (!bid.tender || bid.tender.status !== 'PUBLISHED') {
+      return res.status(400).json({ message: 'Tender is no longer accepting bids' });
+    }
+
+    const review = await generateBidPreSubmitReview({
+      bid,
+      tender: bid.tender
+    });
+
+    return res.json({
+      message: 'Pre-submit review generated',
+      review
+    });
+  } catch (err) {
+    console.error('Pre-submit review error:', err);
+    return res.status(500).json({ message: 'Failed to generate pre-submit review', error: err.message });
+  }
+});
 
 // PATCH /api/bids/:id/submit - STRICT VALIDATION
 router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, res) => {
@@ -305,6 +375,11 @@ router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async 
     await Tender.findByIdAndUpdate(bid.tender._id, {
       $addToSet: { bids: bid._id }
     });
+    // In bid.routes.js, add at the beginning of the route handler:
+    console.log("this is from pathc bid/submit")
+console.log('Request body:', req.body);
+console.log('Request files:', req.files);
+console.log('Request headers:', req.headers['content-type']);
     res.json({ message: 'Bid submitted successfully!', bid });
   } catch (err) {
     res.status(500).json({ message: 'Submission error', error: err.message });

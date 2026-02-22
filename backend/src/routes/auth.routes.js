@@ -4,10 +4,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Company = require('../models/Company');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const validate = require('../middleware/validate');
 const { registerCompanyAdminSchema, loginSchema } = require('../validation/authSchema');
+const { sendEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -37,11 +38,13 @@ router.get('/me', auth, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     res.json({
-      user: {
-        ...user,
-        id: user._id, // Mapping _id to id for frontend consistency
-        companyName: user.company?.name
-      }
+      id: user._id, // Mapping _id to id for frontend consistency
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      companyId: user.company?._id,
+      companyName: user.company?.name,
+      emailVerified: user.emailVerified,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -138,5 +141,22 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+router.get('/test-email', async (req, res) => {
+  try {
+    await sendEmail({
+      to: process.env.EMAIL_USER,
+      subject: 'Test Email',
+      html: '<h2>Nodemailer is working correctly 🚀</h2>',
+    });
+
+    res.send('Email sent successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Email failed');
+  }
+});
+
+
 
 module.exports = router;

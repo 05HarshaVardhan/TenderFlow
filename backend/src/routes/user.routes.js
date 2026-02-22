@@ -5,9 +5,10 @@ const Joi = require('joi');
 const User = require('../models/User');
 const Company = require('../models/Company');
 const bcrypt = require('bcrypt');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const validate = require('../middleware/validate');
+const { sendEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -57,6 +58,21 @@ router.post(
         phone,
       });
 
+      await sendEmail({
+  to: email.toLowerCase(),
+  subject: 'Welcome to TenderFlow',
+  html: `
+    <h2>Welcome to ${req.user.companyName}</h2>
+    <p>Your account has been created by your Company Admin.</p>
+    <p><strong>Login Credentials:</strong></p>
+    <p>Email: ${email.toLowerCase()}</p>
+    <p>Password: ${password}</p>
+    <br/>
+    <p>Please login and change your password after first login.</p>
+  `,
+});
+
+
       // CLEANUP: Convert to object and delete passwordHash manually for creation
       const userObj = user.toObject();
       delete userObj.passwordHash;
@@ -70,20 +86,56 @@ router.post(
 // GET /api/users/my-company - List company users
 router.get('/my-company', auth, async (req, res) => {
   try {
-    // If Super Admin, they can see everyone; otherwise, filter by company
-    const query = req.user.role === 'SUPER_ADMIN' ? {} : { company: req.user.companyId };
-
-    const users = await User.find(query)
-      .select('-passwordHash')
-      .sort({ createdAt: -1 })
-      .lean();
-
+    // In user.routes.js - GET /my-company endpoint
+const users = await User.aggregate([
+  { 
+    $match: req.user.role === 'SUPER_ADMIN' ? {} : { company: req.user.companyId } 
+  },
+  {
+    $lookup: {
+      from: 'tenders',
+      localField: '_id',
+      foreignField: 'createdBy',
+      as: 'tenders'
+    }
+  },
+  {
+    $lookup: {
+      from: 'bids',
+      localField: '_id',
+      foreignField: 'user',
+      as: 'bids'
+    }
+  },
+  {
+    $addFields: {
+      stats: {
+        tendersPosted: { $size: '$tenders' },
+        bidsSubmitted: { $size: '$bids' }
+      }
+    }
+  },
+  {
+    $project: {
+      name: 1,
+      email: 1,
+      role: 1,
+      jobTitle: 1,
+      phone: 1,
+      isActive: 1,
+      stats: 1,
+      createdAt: 1
+    }
+  }
+]);
+    // In user.routes.js
+console.log('Users with stats:', JSON.stringify(users, null, 2));
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: 'Server error fetching team' });
+    console.error('Error fetching team members:', err);
+    res.status(500).json({ message: 'Server error fetching team members' });
   }
 });
-
 // PATCH /api/users/:id - Update user
 router.patch(
   '/:id',

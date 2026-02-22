@@ -67,6 +67,17 @@ const tenderSchema = new mongoose.Schema({
   embedding: { type: [Number], default: [] },
   aiSummary: { type: String },
   aiFlags: { type: mongoose.Schema.Types.Mixed, default: {} },
+  analysisReport: {
+    model: { type: String, default: null },
+    generatedAt: { type: Date },
+    summary: { type: String, default: "" },
+    ranking: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    risks: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    recommendation: { type: String, default: "" },
+    deterministicScores: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    statistics: { type: mongoose.Schema.Types.Mixed, default: {} },
+    fallbackReason: { type: String, default: "" }
+  },
   evaluationCriteria: { type: mongoose.Schema.Types.Mixed },
   viewsCount: { type: Number, default: 0 },
 

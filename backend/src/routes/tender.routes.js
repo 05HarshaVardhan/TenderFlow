@@ -2,10 +2,12 @@ const cloudinary = require('cloudinary').v2;
 const express = require('express');
 const Tender = require('../models/Tender');
 const Bid = require('../models/Bid');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const { publishTenderSchema } = require('../validation/tenderSchema');
 const { uploadMultiple } = require('../middleware/upload');
+const { analyzeTenderBids } = require('../services/bidAnalysisService');
+const { generateTenderDraft } = require('../services/tenderDraftService');
 const router = express.Router();
 
 // Helper to enforce ownership
@@ -25,9 +27,39 @@ const getTenderQuery = (req, tenderId) => {
   return query;
 };
 
+// --- GENERATE TENDER DRAFT (AI) ---
+router.post('/ai/draft', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
+  try {
+    const prompt = String(req.body?.prompt || '').trim();
+    if (prompt.length < 20) {
+      return res.status(400).json({ message: 'Prompt must be at least 20 characters long' });
+    }
+
+    const result = await generateTenderDraft({ prompt });
+    return res.json({
+      message: 'AI draft generated successfully',
+      model: result.model,
+      draft: result.draft
+    });
+  } catch (err) {
+    console.error('AI tender draft error:', err);
+    if (err.message === 'GEMINI_API_KEY is not configured') {
+      return res.status(503).json({ message: 'AI drafting is unavailable. GEMINI_API_KEY is missing.' });
+    }
+    if (err.message === 'AI returned an incomplete tender draft') {
+      return res.status(422).json({ message: 'AI response was incomplete. Please try a more specific prompt.' });
+    }
+    return res.status(500).json({ message: 'Failed to generate AI draft', error: err.message });
+  }
+});
+
 // --- CREATE TENDER (DRAFT) ---
 router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMultiple('documents', 10), async (req, res) => {
   try {
+    if (!req.user?.companyId) {
+      return res.status(400).json({ message: 'User company is missing. Contact admin.' });
+    }
+
     const documentData = req.files ? req.files.map(file => ({
       url: file.path,
       public_id: file.filename,
@@ -48,6 +80,20 @@ router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMult
     res.status(201).json(tender);
   } catch (err) {
     console.error('Draft creation error:', err);
+
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation failed for tender draft',
+        details: Object.values(err.errors || {}).map(e => e.message)
+      });
+    }
+
+    if (err.code === 11000) {
+      return res.status(409).json({
+        message: 'Reference number conflict. Please try again.'
+      });
+    }
+
     res.status(500).json({ message: 'Draft creation failed', error: err.message });
   }
 });
@@ -207,6 +253,44 @@ router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER')
   } catch (err) {
     console.error('Publish error:', err);
     res.status(500).json({ message: 'Publishing failed', error: err.message });
+  }
+});
+
+// --- ANALYZE BIDS (AI + RULES) ---
+router.post('/:id/analyze-bids', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
+  try {
+    const tender = await Tender.findOne(getTenderQuery(req, req.params.id))
+      .populate({
+        path: 'bids',
+        populate: { path: 'bidderCompany', select: 'name industry' }
+      });
+
+    if (!tender) {
+      return res.status(404).json({ message: 'Tender not found' });
+    }
+
+    if (tender.status !== 'PUBLISHED' && tender.status !== 'CLOSED' && tender.status !== 'AWARDED') {
+      return res.status(400).json({
+        message: 'Bid analysis is available only for published, closed, or awarded tenders'
+      });
+    }
+
+    const report = await analyzeTenderBids({
+      tender,
+      bids: tender.bids || []
+    });
+
+    tender.analysisReport = report;
+    await tender.save();
+
+    res.json({
+      message: 'Bid analysis generated successfully',
+      tenderId: tender._id,
+      analysisReport: report
+    });
+  } catch (err) {
+    console.error('Analyze bids error:', err);
+    res.status(500).json({ message: 'Analyze bids failed', error: err.message });
   }
 });
 // --- DATA FETCHING ROUTES ---

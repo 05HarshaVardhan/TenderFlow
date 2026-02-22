@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '@/api/axios';
+import { useAuth } from '@/context/authContext';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,19 +9,35 @@ import {
   Trophy, User, Clock, DollarSign, 
   FileText, Download, ShieldCheck, ExternalLink, 
   Users, CheckCircle2, X, FileIcon, ExternalLink as ExternalLinkIcon,
-  FileDown, Calendar, CalendarDays, Tag, Hash
+  FileDown, Calendar, CalendarDays, Tag, Hash, Sparkles
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { saveAs } from 'file-saver';
 
 export default function TenderDetails() {
+  const { state } = useAuth();
+  const user = state?.user;
   const { id } = useParams();
   const [tender, setTender] = useState(null);
   const [bids, setBids] = useState([]);
+  const [analysisReport, setAnalysisReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
   const [selectedBid, setSelectedBid] = useState(null);
   const [viewingFiles, setViewingFiles] = useState(null); // 'technical' or 'financial'
   const [downloadingFile, setDownloadingFile] = useState(null);
+
+  const canAnalyzeBids = ['COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'].includes(user?.role);
+
+  const formatCurrency = (value) => {
+    const amount = Number(value || 0);
+    return `$${amount.toLocaleString()}`;
+  };
+
+  const formatSignedPercent = (value) => {
+    const num = Number(value || 0);
+    return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;
+  };
 
   const handleDownloadFile = async (file) => {
     try {
@@ -59,7 +76,8 @@ export default function TenderDetails() {
       ]);
       setTender(tRes.data);
       setBids(bRes.data);
-    } catch (err) {
+      setAnalysisReport(tRes.data?.analysisReport || null);
+    } catch {
       toast.error("Error loading tender details");
     } finally {
       setLoading(false);
@@ -77,6 +95,21 @@ export default function TenderDetails() {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to award tender");
+    }
+  };
+
+  const handleAnalyzeBids = async () => {
+    try {
+      setAnalyzing(true);
+      const res = await api.post(`/tenders/${id}/analyze-bids`);
+      const report = res.data?.analysisReport || null;
+      setAnalysisReport(report);
+      setTender((prev) => prev ? ({ ...prev, analysisReport: report }) : prev);
+      toast.success("Bid analysis generated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to analyze bids");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -204,6 +237,170 @@ export default function TenderDetails() {
           </div>
         )}
       </div>
+
+      {/* 2. AI Analysis Section */}
+      {canAnalyzeBids && (
+        <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 shadow-xl space-y-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-400" />
+                Bid Analysis
+              </h2>
+              <p className="text-zinc-500 text-sm mt-1">
+                AI-assisted comparative report for submitted bids.
+              </p>
+            </div>
+            <Button
+              onClick={handleAnalyzeBids}
+              disabled={analyzing}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+            >
+              {analyzing ? "Analyzing..." : "Analyze Bids"}
+            </Button>
+          </div>
+
+          {analysisReport ? (
+            <div className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="bg-zinc-900/50 rounded-lg border border-zinc-800 p-4">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Summary</p>
+                  <p className="text-zinc-200 text-sm leading-relaxed">
+                    {analysisReport.summary || 'No summary available.'}
+                  </p>
+                </div>
+                <div className="bg-zinc-900/50 rounded-lg border border-zinc-800 p-4">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recommendation</p>
+                  <p className="text-zinc-200 text-sm leading-relaxed">
+                    {analysisReport.recommendation || 'No recommendation available.'}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-3">
+                    Model: {analysisReport.model || 'deterministic fallback'}
+                  </p>
+                </div>
+              </div>
+
+              {analysisReport.statistics && (
+                <div className="bg-zinc-900/50 rounded-lg border border-zinc-800 p-4">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">Bid Distribution Metrics</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Average Bid</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {formatCurrency(analysisReport.statistics.averageBid)}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Median Bid</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {formatCurrency(analysisReport.statistics.medianBid)}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Range</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {formatCurrency(analysisReport.statistics.minBid)} - {formatCurrency(analysisReport.statistics.maxBid)}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Spread</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {formatCurrency(analysisReport.statistics.rangeBid)}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Std Deviation</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {formatCurrency(analysisReport.statistics.stdDeviationBid)}
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Coefficient of Variation</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {analysisReport.statistics.coefficientOfVariationPct?.toFixed?.(2) || Number(analysisReport.statistics.coefficientOfVariationPct || 0).toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Average Delivery</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {Number(analysisReport.statistics.averageDeliveryDays || 0).toFixed(1)} days
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Delivery Range</p>
+                      <p className="text-sm font-semibold text-zinc-100 mt-1">
+                        {analysisReport.statistics.minDeliveryDays || 0} - {analysisReport.statistics.maxDeliveryDays || 0} days
+                      </p>
+                    </div>
+                    <div className="bg-zinc-950 rounded border border-zinc-800 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Avg vs Estimate</p>
+                      <p className={`text-sm font-semibold mt-1 ${
+                        Number(analysisReport.statistics.averageVsEstimatePct || 0) > 0
+                          ? 'text-amber-400'
+                          : 'text-emerald-400'
+                      }`}>
+                        {formatSignedPercent(analysisReport.statistics.averageVsEstimatePct)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-zinc-900/50 rounded-lg border border-zinc-800 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">Ranking</p>
+                {Array.isArray(analysisReport.ranking) && analysisReport.ranking.length > 0 ? (
+                  <div className="space-y-2">
+                    {analysisReport.ranking.map((item, index) => (
+                      <div
+                        key={`${item.bidId || index}`}
+                        className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 bg-zinc-950 rounded border border-zinc-800"
+                      >
+                        <div className="text-sm text-zinc-200">
+                          <span className="text-zinc-500 mr-2">#{item.position || index + 1}</span>
+                          {item.bidderCompany || 'Unknown bidder'}
+                        </div>
+                        <div className="text-xs text-zinc-400">
+                          {item.reason || (item.weightedScore !== undefined ? `Score: ${item.weightedScore}` : 'No details')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500">No ranking data available.</p>
+                )}
+              </div>
+
+              <div className="bg-zinc-900/50 rounded-lg border border-zinc-800 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">Risks</p>
+                {Array.isArray(analysisReport.risks) && analysisReport.risks.length > 0 ? (
+                  <div className="space-y-2">
+                    {analysisReport.risks.map((risk, idx) => (
+                      <div
+                        key={`${risk.bidId || idx}-${risk.risk || idx}`}
+                        className="p-3 bg-zinc-950 rounded border border-zinc-800 text-sm text-zinc-300"
+                      >
+                        <span className="font-semibold text-zinc-100">
+                          {risk.bidderCompany || 'Bidder'}:
+                        </span>{" "}
+                        {risk.risk || 'Risk detail unavailable'}
+                        {risk.severity ? (
+                          <span className="ml-2 text-xs text-amber-400 uppercase">({risk.severity})</span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500">No major risks flagged.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-lg border border-dashed border-zinc-700 text-sm text-zinc-500">
+              Run analysis to generate a comparative bid report.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2. Bids Section */}
       <div className="space-y-4">

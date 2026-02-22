@@ -8,7 +8,7 @@ import {
   ExternalLink, FileText, DollarSign, Edit3,
   Building2, User2, Hash, Calendar,
   Search, Filter, SortAsc, RotateCcw, AlertTriangle, ShieldCheck, Trash2, FileIcon,
-  Ban // Added for Withdrawn icon
+  Ban, Sparkles // Added for Withdrawn icon
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
@@ -206,6 +206,8 @@ export default function MyBids() {
   const [selectedBid, setSelectedBid] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [submitConfirmData, setSubmitConfirmData] = useState(null);
+  const [submitReview, setSubmitReview] = useState(null);
+  const [submitReviewLoading, setSubmitReviewLoading] = useState(false);
 
   // --- FILTER STATES (Synced with Tender Logic) ---
   const [search, setSearch] = useState("");
@@ -230,7 +232,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
         params: { search, status: statusFilter, sort: sortBy }
       });
       setBids(response.data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load your bids");
     } finally {
       setLoading(false);
@@ -252,44 +254,36 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
   };
 
   // --- REPLACEMENT FOR PUBLISH LOGIC ---
-  const openSubmitAudit = (bid) => {
-    // Validation before showing audit
-    const missingDocs = (!bid.technicalDocs?.length && !bid.financialDocs?.length);
-    if (missingDocs) {
-      toast.error("Please attach documents before submitting.");
-      handleEditClick(bid, false);
-      return;
-    }
+  const openSubmitAudit = async (bid) => {
     setSubmitConfirmData(JSON.parse(JSON.stringify(bid)));
+    setSubmitReview(null);
+    setSubmitReviewLoading(true);
+
+    try {
+      const response = await api.get(`/bids/${bid._id}/pre-submit-review`);
+      setSubmitReview(response.data?.review || null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to generate pre-submit review");
+    } finally {
+      setSubmitReviewLoading(false);
+    }
   };
 
   const confirmSubmission = async () => {
+    if (submitReviewLoading) return;
+    if (submitReview && submitReview.readinessScore < 100) {
+      toast.error("Please resolve review warnings before submitting.");
+      return;
+    }
+
     try {
       await api.patch(`/bids/${submitConfirmData._id}/submit`);
       toast.success("Bid submitted successfully!");
       setSubmitConfirmData(null);
+      setSubmitReview(null);
       fetchMyBids(); 
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to submit bid");
-    }
-  };
-
-const handleWithdraw = async (bidId) => {
-    const confirmed = window.confirm(
-      "CRITICAL WARNING: If you withdraw this bid, NO ONE from your company can bid on this tender ever again. This action is permanent and cannot be undone. Proceed?"
-    );
-    
-    if (!confirmed) return;
-
-    try {
-      setIsWithdrawingId(bidId);
-      await api.patch(`/bids/${bidId}/withdraw`);
-      toast.success("Bid withdrawn. Company eligibility revoked for this tender.");
-      fetchMyBids(); // Refresh the list
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Withdrawal failed");
-    } finally {
-      setIsWithdrawingId(null);
     }
   };
 
@@ -506,11 +500,78 @@ const handleWithdraw = async (bidId) => {
                 </div>
               </div>
 
+              <div className="text-left space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-300">
+                    <Sparkles className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">AI Pre-Submit Review</span>
+                  </div>
+                  {submitReview && (
+                    <span
+                      className={`text-xs font-black px-2 py-1 rounded-md ${
+                        submitReview.readinessScore === 100
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-amber-500/20 text-amber-300'
+                      }`}
+                    >
+                      Readiness {submitReview.readinessScore}/100
+                    </span>
+                  )}
+                </div>
+
+                {submitReviewLoading ? (
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                    <Clock className="w-4 h-4 animate-spin" />
+                    Reviewing your bid for completeness...
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-zinc-300">
+                      {submitReview?.summary || "Review not available. You can still edit your draft and retry."}
+                    </p>
+
+                    {submitReview?.warnings?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase text-amber-300 font-bold tracking-widest">Missing / Risk Warnings</p>
+                        {submitReview.warnings.map((warning, idx) => (
+                          <div key={idx} className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2">
+                            {warning}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {submitReview?.nextActions?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase text-zinc-400 font-bold tracking-widest">Suggested Next Actions</p>
+                        {submitReview.nextActions.map((action, idx) => (
+                          <div key={idx} className="text-xs text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                            {action}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
               <div className="flex flex-col gap-2 pt-4">
-                <Button onClick={confirmSubmission} className="bg-blue-600 hover:bg-blue-700 w-full font-bold">
+                <Button
+                  onClick={confirmSubmission}
+                  disabled={submitReviewLoading || (submitReview && submitReview.readinessScore < 100)}
+                  className="bg-blue-600 hover:bg-blue-700 w-full font-bold disabled:opacity-50"
+                >
                   Confirm & Submit Proposal
                 </Button>
-                <Button variant="ghost" onClick={() => setSubmitConfirmData(null)} className="text-zinc-500">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSubmitConfirmData(null);
+                    setSubmitReview(null);
+                    setSubmitReviewLoading(false);
+                  }}
+                  className="text-zinc-500"
+                >
                   Cancel
                 </Button>
               </div>

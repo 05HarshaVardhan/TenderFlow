@@ -138,10 +138,18 @@ export default function BidSubmissionModal({ isOpen, onClose, tender, existingBi
 
       let res;
       if (existingBid?._id) {
-        res = await api.patch(`/bids/${existingBid._id}`, data);
-      } else {
-        res = await api.post('/bids', data);
-      }
+      res = await api.patch(`/bids/${existingBid._id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'  // This is crucial
+        }
+      });
+    } else {
+      res = await api.post('/bids', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'  // This is crucial
+        }
+      });
+    }
 
       const updatedBid = res.data;
       if (isFinalSubmit) {
@@ -151,6 +159,9 @@ export default function BidSubmissionModal({ isOpen, onClose, tender, existingBi
       } else {
         toast.success("Draft Saved!");
       }
+      console.log('techDocs:', techDocs);
+console.log('finDocs:', finDocs);
+console.log('emdDoc:', emdDoc)
       if (onRefresh) onRefresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Action failed");

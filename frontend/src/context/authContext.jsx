@@ -1,3 +1,4 @@
+// frontend/src/context/authContext.jsx
 import { createContext, useContext, useReducer, useEffect } from 'react'
 import axios from 'axios'
 
@@ -84,20 +85,33 @@ export const AuthProvider = ({ children }) => {
 
       if (token && storedUser) {
         try {
+          // Set the token in the axios instance
+          axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          
           // Verify with backend to get fresh user data on refresh
           const response = await axiosInstance.get('/auth/me')
+          
+          // If we get here, the token is valid
           dispatch({ 
             type: 'AUTH_INIT', 
-            payload: { user: response.data.user, token } 
+            payload: { 
+              user: response.data, 
+              token 
+            } 
           })
         } catch (error) {
-          console.error("Session expired")
-          dispatch({ type: 'LOGOUT' })
+          console.error("Auth check failed:", error.response?.data?.message || error.message)
+          // Clear invalid token and user data
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          delete axiosInstance.defaults.headers.common['Authorization']
+          dispatch({ type: 'STOP_LOADING' })
         }
       } else {
         dispatch({ type: 'STOP_LOADING' })
       }
     }
+    
     initAuth()
   }, [])
 
