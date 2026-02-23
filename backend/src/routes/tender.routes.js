@@ -8,6 +8,12 @@ const { publishTenderSchema } = require('../validation/tenderSchema');
 const { uploadMultiple } = require('../middleware/upload');
 const { analyzeTenderBids } = require('../services/bidAnalysisService');
 const { generateTenderDraft } = require('../services/tenderDraftService');
+const {
+  buildTenderSearchText,
+  generateEmbedding,
+  semanticSearchTenders,
+  getSortOption
+} = require('../services/semanticSearchService');
 const router = express.Router();
 
 // Helper to enforce ownership
@@ -25,6 +31,22 @@ const getTenderQuery = (req, tenderId) => {
   }
 
   return query;
+};
+
+const shouldUseSemanticSearch = (rawSearch, searchMode) => {
+  const mode = String(searchMode || 'semantic').toLowerCase();
+  return (
+    mode === 'semantic' &&
+    Boolean(process.env.GEMINI_API_KEY) &&
+    String(rawSearch || '').trim().length >= 3
+  );
+};
+
+const buildRegexSearchClause = (search) => {
+  const searchRegex = { $regex: String(search || '').trim(), $options: 'i' };
+  return {
+    $or: [{ title: searchRegex }, { description: searchRegex }, { tags: searchRegex }]
+  };
 };
 
 // --- GENERATE TENDER DRAFT (AI) ---
@@ -67,12 +89,21 @@ router.post('/', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), uploadMult
       fileType: file.mimetype
     })) : [];
 
+    const searchableText = buildTenderSearchText(req.body);
+    let embedding = [];
+    try {
+      embedding = await generateEmbedding(searchableText) || [];
+    } catch (embeddingError) {
+      console.warn('Embedding generation failed during create:', embeddingError.message);
+    }
+
     const tender = await Tender.create({
       ...req.body,
       status: 'DRAFT',
       estimatedValue: Number(req.body.estimatedValue || 0),
       emdAmount: Number(req.body.emdAmount || 0),
       documents: documentData,
+      embedding,
       ownerCompany: req.user.companyId,
       createdBy: req.user.id
     });
@@ -200,6 +231,16 @@ router.patch('/:id',
           tender.tags = req.body.tags.split(',').map(t => t.trim()).filter(t => t);
       }
 
+      const searchableText = buildTenderSearchText(tender);
+      try {
+        const embedding = await generateEmbedding(searchableText);
+        if (Array.isArray(embedding) && embedding.length > 0) {
+          tender.embedding = embedding;
+        }
+      } catch (embeddingError) {
+        console.warn('Embedding generation failed during update:', embeddingError.message);
+      }
+
       const saved = await tender.save();
       console.log('Tender saved successfully:', saved);
       res.json(saved);
@@ -247,6 +288,17 @@ router.patch('/:id/publish', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER')
     // 4. Finalize Publication
     tender.status = 'PUBLISHED';
     tender.startDate = new Date();
+
+    const searchableText = buildTenderSearchText(tender);
+    try {
+      const embedding = await generateEmbedding(searchableText);
+      if (Array.isArray(embedding) && embedding.length > 0) {
+        tender.embedding = embedding;
+      }
+    } catch (embeddingError) {
+      console.warn('Embedding generation failed during publish:', embeddingError.message);
+    }
+
     await tender.save();
 
     res.json({ message: 'Tender is now LIVE', tender });
@@ -304,9 +356,11 @@ router.post('/:id/analyze-bids', auth, requireRole('COMPANY_ADMIN', 'TENDER_POST
 
 router.get(['/my-company', '/my-posted-tenders'], auth, async (req, res) => {
   try {
-    const { search, category, sortBy, statusFilter } = req.query;
+    const { search, category, statusFilter, searchMode } = req.query;
+    const sortBy = req.query.sortBy || req.query.sort;
     const userId = req.user.id;
     const companyId = req.user.companyId;
+    const normalizedSearch = String(search || '').trim();
 
     let andConditions = [];
 
@@ -332,30 +386,37 @@ router.get(['/my-company', '/my-posted-tenders'], auth, async (req, res) => {
     if (category && category !== 'All') andConditions.push({ category });
     if (statusFilter && statusFilter !== 'All') andConditions.push({ status: statusFilter });
 
-    // C. Search
-    if (search && search.trim() !== "") {
-      const searchRegex = { $regex: search, $options: 'i' };
-      andConditions.push({
-        $or: [
-          { title: searchRegex },
-          { description: searchRegex }
-        ]
-      });
+    const baseQuery = andConditions.length > 0 ? { $and: andConditions } : {};
+    const finalQuery = { ...baseQuery };
+    if (normalizedSearch) {
+      finalQuery.$and = [...(finalQuery.$and || []), buildRegexSearchClause(normalizedSearch)];
     }
 
-    const finalQuery = andConditions.length > 0 ? { $and: andConditions } : {};
+    let tenders = [];
+    if (normalizedSearch && shouldUseSemanticSearch(normalizedSearch, searchMode)) {
+      try {
+        const semanticResults = await semanticSearchTenders({
+          search: normalizedSearch,
+          baseMatch: baseQuery,
+          sortBy
+        });
 
-    // D. Sorting
-    let sortOption = { createdAt: -1 };
-    if (sortBy === 'oldest') sortOption = { createdAt: 1 };
-    if (sortBy === 'value_high') sortOption = { estimatedValue: -1 };
-    if (sortBy === 'value_low') sortOption = { estimatedValue: 1 };
-    if (sortBy === 'deadline') sortOption = { endDate: 1 };
+        tenders = await Tender.populate(semanticResults || [], {
+          path: 'bids',
+          match: { status: 'SUBMITTED' }
+        });
+      } catch (semanticError) {
+        console.warn('Semantic search unavailable, falling back to regex:', semanticError.message);
+      }
+    }
 
-    const tenders = await Tender.find(finalQuery)
-      .populate({ path: 'bids', match: { status: 'SUBMITTED' } })
-      .sort(sortOption)
-      .lean();
+    if (!Array.isArray(tenders) || tenders.length === 0) {
+      const sortOption = getSortOption(sortBy) || { createdAt: -1 };
+      tenders = await Tender.find(finalQuery)
+        .populate({ path: 'bids', match: { status: 'SUBMITTED' } })
+        .sort(sortOption)
+        .lean();
+    }
 
     res.json(tenders);
   } catch (err) {
@@ -365,18 +426,47 @@ router.get(['/my-company', '/my-posted-tenders'], auth, async (req, res) => {
 });
 router.get('/available', auth, async (req, res) => {
   try {
+    const { search, searchMode } = req.query;
+    const sortBy = req.query.sortBy || req.query.sort;
+    const normalizedSearch = String(search || '').trim();
+
     // Logic: 
     // 1. Status must be PUBLISHED
     // 2. ownerCompany must NOT be the user's current companyId
-    const query = {
+    const baseQuery = {
       status: 'PUBLISHED',
       ownerCompany: { $ne: req.user.companyId }
     };
+    const finalQuery = { ...baseQuery };
+    if (normalizedSearch) {
+      finalQuery.$and = [...(finalQuery.$and || []), buildRegexSearchClause(normalizedSearch)];
+    }
 
-    const tenders = await Tender.find(query)
-      .populate('ownerCompany', 'name industry')
-      .sort({ createdAt: -1 })
-      .lean();
+    let tenders = [];
+    if (normalizedSearch && shouldUseSemanticSearch(normalizedSearch, searchMode)) {
+      try {
+        const semanticResults = await semanticSearchTenders({
+          search: normalizedSearch,
+          baseMatch: baseQuery,
+          sortBy
+        });
+        tenders = await Tender.populate(semanticResults || [], [
+          { path: 'ownerCompany', select: 'name industry' },
+          { path: 'bids', select: 'status bidderCompany' }
+        ]);
+      } catch (semanticError) {
+        console.warn('Semantic search unavailable for available tenders:', semanticError.message);
+      }
+    }
+
+    if (!Array.isArray(tenders) || tenders.length === 0) {
+      const sortOption = getSortOption(sortBy) || { createdAt: -1 };
+      tenders = await Tender.find(finalQuery)
+        .populate('ownerCompany', 'name industry')
+        .populate('bids', 'status bidderCompany')
+        .sort(sortOption)
+        .lean();
+    }
 
     res.json(tenders);
   } catch (err) {

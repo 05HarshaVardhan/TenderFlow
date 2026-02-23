@@ -29,13 +29,21 @@ export default function BrowseTenders() {
   };
 
   useEffect(() => {
-    fetchTenders();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchTenders(searchQuery);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchTenders = async () => {
+  const fetchTenders = async (searchValue = "") => {
     try {
       setLoading(true);
-      const response = await api.get('/tenders/available'); 
+      const response = await api.get('/tenders/available', {
+        params: {
+          search: searchValue || undefined,
+          searchMode: searchValue ? 'semantic' : undefined
+        }
+      });
       setTenders(response.data);
     } catch (err) {
       toast.error("Failed to load tenders");
@@ -54,13 +62,6 @@ export default function BrowseTenders() {
       bid.bidderCompany === user.companyId && bid.status === 'WITHDRAWN'
     );
   };
-
-  const filteredTenders = tenders.filter(t => {
-    const title = t.title?.toLowerCase() || "";
-    const category = t.category?.toLowerCase() || "";
-    const search = searchQuery.toLowerCase();
-    return title.includes(search) || category.includes(search);
-  });
 
   if (loading) {
     return (
@@ -94,7 +95,7 @@ export default function BrowseTenders() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredTenders.map((tender) => {
+        {tenders.map((tender) => {
           const isWithdrawn = checkIsWithdrawn(tender);
 
           return (
@@ -162,7 +163,7 @@ export default function BrowseTenders() {
       </div>
 
       {/* Empty State */}
-      {filteredTenders.length === 0 && (
+      {tenders.length === 0 && (
         <div className="text-center py-24 bg-zinc-950/50 rounded-2xl border border-dashed border-zinc-800">
           <Briefcase className="w-12 h-12 mx-auto text-zinc-800 mb-4" />
           <p className="text-zinc-500">No active tenders match your search criteria.</p>

@@ -49,6 +49,7 @@ export const useDashboardStats = (role, filters = {}) => {
       // STEP 3: Use 'debouncedSearch' here instead of 'search'
       const params = {
         search: debouncedSearch || undefined,
+        searchMode: debouncedSearch ? 'semantic' : undefined,
         category: category !== 'All' ? category : undefined,
         sort: sortBy || 'newest',
         statusFilter: statusFilter !== 'All' ? statusFilter : undefined
