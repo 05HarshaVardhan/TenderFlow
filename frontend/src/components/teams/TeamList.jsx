@@ -1,17 +1,24 @@
 // frontend/src/components/teams/TeamList.jsx
 import { useState, useEffect } from 'react'; // Added useEffect import
-import { useQuery } from '@tanstack/react-query';
-import { getUsers } from '@/api/user';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { blockUser, deleteUser, getUsers, unblockUser } from '@/api/user';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, UserPlus, Search } from 'lucide-react';
+import { Ban, CheckCircle2, Search, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/context/authContext';
+import { toast } from 'react-hot-toast';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export function TeamList() {
   // 1. ALL HOOKS AT THE TOP
+  const queryClient = useQueryClient();
+  const { state } = useAuth();
+  const canManageUsers = ['COMPANY_ADMIN', 'SUPER_ADMIN'].includes(state.user?.role);
+  const isSuperAdmin = state.user?.role === 'SUPER_ADMIN';
   
  const { data, isLoading, error } = useQuery({
     queryKey: ['users'],
@@ -21,9 +28,49 @@ export function TeamList() {
 
   const users = Array.isArray(data) ? data : (data?.users || []);
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    mode: null,
+    user: null,
+    title: '',
+    description: '',
+  });
   useEffect(() => {
     console.log('Users data:', data);
   }, [data]);
+
+  const blockMutation = useMutation({
+    mutationFn: blockUser,
+    onSuccess: (response) => {
+      toast.success(response?.message || 'User blocked successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to block user');
+    }
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: unblockUser,
+    onSuccess: (response) => {
+      toast.success(response?.message || 'User unblocked successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to unblock user');
+    }
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: (response) => {
+      toast.success(response?.message || 'User removed successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to remove user');
+    }
+  });
 
   // 2. CONDITIONAL RENDERING AFTER HOOKS
   if (isLoading) {
@@ -65,6 +112,57 @@ export function TeamList() {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const isBusy = blockMutation.isPending || unblockMutation.isPending || removeMutation.isPending;
+
+  const handleBlockToggle = (user) => {
+    if (!canManageUsers) return;
+    if (user._id === state.user?.id) {
+      toast.error('You cannot block your own account');
+      return;
+    }
+
+    const willBlock = user.isActive;
+    setConfirmDialog({
+      open: true,
+      mode: willBlock ? 'block' : 'unblock',
+      user,
+      title: willBlock ? `Block ${user.name}?` : `Unblock ${user.name}?`,
+      description: willBlock
+        ? 'They will be notified by email and cannot access the platform.'
+        : 'They will be notified by email and can access the platform again.',
+    });
+  };
+
+  const handleRemove = (user) => {
+    if (!canManageUsers) return;
+    if (user._id === state.user?.id) {
+      toast.error('You cannot remove your own account');
+      return;
+    }
+
+    setConfirmDialog({
+      open: true,
+      mode: 'remove',
+      user,
+      title: `Remove ${user.name}?`,
+      description: 'This action is permanent. They will be notified by email before removal.',
+    });
+  };
+
+  const onConfirmAction = () => {
+    if (!confirmDialog.user?._id || !confirmDialog.mode) return;
+
+    if (confirmDialog.mode === 'block') {
+      blockMutation.mutate(confirmDialog.user._id);
+    } else if (confirmDialog.mode === 'unblock') {
+      unblockMutation.mutate(confirmDialog.user._id);
+    } else {
+      removeMutation.mutate(confirmDialog.user._id);
+    }
+
+    setConfirmDialog({ open: false, mode: null, user: null, title: '', description: '' });
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -85,16 +183,16 @@ export function TeamList() {
           <TableHeader>
             <TableRow>
               <TableHead>Member</TableHead>
+              {isSuperAdmin && <TableHead>Company</TableHead>}
               <TableHead>Role</TableHead>
-              <TableHead className="text-right">Tenders Posted</TableHead>
-              <TableHead className="text-right">Bids Submitted</TableHead>
               <TableHead>Member Since</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={isSuperAdmin ? 5 : 4} className="h-24 text-center">
                   {searchTerm ? 'No matching users found' : 'No team members yet'}
                 </TableCell>
               </TableRow>
@@ -112,15 +210,56 @@ export function TeamList() {
                       </div>
                     </div>
                   </TableCell>
+                  {isSuperAdmin && (
+                    <TableCell className="text-muted-foreground">
+                      {user.company?.name || 'Unassigned'}
+                    </TableCell>
+                  )}
                   <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {user.stats?.tendersPosted || 0}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {user.stats?.bidsSubmitted || 0}
-                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {user.createdAt ? formatDistanceToNow(new Date(user.createdAt), { addSuffix: true }) : 'N/A'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {!user.isActive && (
+                        <Badge variant="outline" className="border-red-300 text-red-600">
+                          Blocked
+                        </Badge>
+                      )}
+                      {canManageUsers ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isBusy || user._id === state.user?.id}
+                            onClick={() => handleBlockToggle(user)}
+                          >
+                            {user.isActive ? (
+                              <>
+                                <Ban className="h-4 w-4 mr-1" />
+                                Block
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Unblock
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={isBusy || user._id === state.user?.id}
+                            onClick={() => handleRemove(user)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Admin only</span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -128,6 +267,20 @@ export function TeamList() {
           </TableBody>
         </Table>
       </CardContent>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog({ open: false, mode: null, user: null, title: '', description: '' });
+          }
+        }}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmLabel={confirmDialog.mode === 'remove' ? 'Remove' : confirmDialog.mode === 'block' ? 'Block' : 'Unblock'}
+        confirmVariant={confirmDialog.mode === 'remove' ? 'destructive' : 'default'}
+        onConfirm={onConfirmAction}
+        isLoading={isBusy}
+      />
     </Card>
   );
 }

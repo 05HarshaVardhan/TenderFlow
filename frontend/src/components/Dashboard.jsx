@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboardStats } from '@/hooks/useDashboard';
 
@@ -13,7 +14,7 @@ import TenderListTable from '@/components/tenders/TenderListTable';
 import CreateTenderModal from '@/components/tenders/CreateTenderModal';
 
 // Icons
-import { FileText, Activity, Users, CheckCircle2, Briefcase, Clock, PlusCircle } from 'lucide-react';
+import { FileText, Activity, Users, CheckCircle2, Briefcase, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -96,11 +97,61 @@ function processBidStats(bids, role) {
 }
 
 export default function Dashboard() {
-  const { state } = useAuth();
+  const navigate = useNavigate();
+  const { state, updateUser } = useAuth();
   const { user } = state;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
+  const profileImageInputRef = useRef(null);
 
   const { tenders, bids, team, loading, refreshData } = useDashboardStats(user?.role);
+
+  const openProfileImagePicker = () => {
+    profileImageInputRef.current?.click();
+  };
+
+  const handleProfileImageChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      event.target.value = '';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    setUploadingProfileImage(true);
+
+    try {
+      const response = await api.patch('/users/me/profile-photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      updateUser({ profileImageUrl: response.data?.profileImageUrl || null });
+      toast.success('Profile photo updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload profile photo');
+    } finally {
+      setUploadingProfileImage(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveProfileImage = async () => {
+    if (!user?.profileImageUrl) return;
+
+    setUploadingProfileImage(true);
+    try {
+      await api.delete('/users/me/profile-photo');
+      updateUser({ profileImageUrl: null });
+      toast.success('Profile photo removed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove profile photo');
+    } finally {
+      setUploadingProfileImage(false);
+    }
+  };
 
   const handleTenderAction = async (id, action) => {
     try {
@@ -112,21 +163,52 @@ export default function Dashboard() {
     }
   };
 
+  const bidStats = processBidStats(bids, user?.role);
+  const tenderStats = processTenderStats(tenders);
+  const recentTenders = useMemo(() => {
+    const getTime = (tender) => {
+      const dateValue = tender?.createdAt || tender?.updatedAt || tender?.endDate;
+      const ts = new Date(dateValue || 0).getTime();
+      return Number.isNaN(ts) ? 0 : ts;
+    };
+
+    return [...(tenders || [])]
+      .sort((a, b) => getTime(b) - getTime(a))
+      .slice(0, 6);
+  }, [tenders]);
+
+  const handleViewAllProjects = () => {
+    if (user?.role === 'COMPANY_ADMIN' || user?.role === 'TENDER_POSTER') {
+      navigate('/tenders');
+      return;
+    }
+    navigate('/browse-tenders');
+  };
+
   if (loading) return (
     <div className="p-8 text-white flex items-center justify-center min-h-screen">
       <div className="animate-pulse text-zinc-500">Loading live data...</div>
     </div>
   );
 
-  const bidStats = processBidStats(bids, user?.role);
-  const tenderStats = processTenderStats(tenders);
-
   return (
     <div className="p-6 bg-black min-h-screen space-y-6 text-white">
+      <input
+        ref={profileImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleProfileImageChange}
+      />
       
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-zinc-900 pb-6">
         <div className="flex-1">
-          <IdentityHeader user={user} />
+          <IdentityHeader
+            user={user}
+            onUploadPhoto={openProfileImagePicker}
+            onRemovePhoto={handleRemoveProfileImage}
+            uploadingProfileImage={uploadingProfileImage}
+          />
         </div>
         
         {(user?.role === 'COMPANY_ADMIN' || user?.role === 'TENDER_POSTER') && (
@@ -151,9 +233,9 @@ export default function Dashboard() {
         ) : (
           <>
             <StatCard title="My Bids" value={bids.length} icon={Briefcase} sub="Total Submissions" />
-            <StatCard title="Accepted" value={bids.filter(b => b.status === 'ACCEPTED').length} icon={CheckCircle2} color="text-emerald-400" sub="Won" />
-            <StatCard title="Pending" value={bids.filter(b => b.status === 'PENDING' || b.status === 'SUBMITTED').length} icon={Clock} color="text-amber-400" sub="Waiting" />
-            <StatCard title="Success Rate" value={bids.length > 0 ? `${Math.round((bids.filter(b => b.status === 'ACCEPTED').length / bids.length) * 100)}%` : "0%"} icon={Activity} sub="Selection %" />
+            <StatCard title="Draft Bids" value={bids.filter(b => b.status === 'DRAFT').length} icon={FileText} sub="Work In Progress" />
+            <StatCard title="Submitted Bids" value={bids.filter(b => b.status === 'SUBMITTED' || b.status === 'UNDER_REVIEW').length} icon={Activity} color="text-blue-400" sub="Under Process" />
+            <StatCard title="Won Bids" value={bids.filter(b => b.status === 'ACCEPTED').length} icon={CheckCircle2} color="text-emerald-400" sub="Awarded" />
           </>
         )}
       </div>
@@ -169,12 +251,21 @@ export default function Dashboard() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold tracking-tight">Recent Projects</h2>
-          <Button variant="link" className="text-blue-500 text-sm p-0 hover:no-underline">View All</Button>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Recent Projects
+            <span className="ml-2 text-sm text-zinc-500 font-normal">({recentTenders.length})</span>
+          </h2>
+          <Button
+            variant="link"
+            onClick={handleViewAllProjects}
+            className="text-blue-500 text-sm p-0 hover:no-underline"
+          >
+            View All
+          </Button>
         </div>
         
         <TenderListTable 
-          tenders={tenders} 
+          tenders={recentTenders}
           onAction={handleTenderAction} 
         />
       </div>
@@ -182,7 +273,7 @@ export default function Dashboard() {
       <CreateTenderModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onRefresh={refreshData} 
+        onSuccess={refreshData}
       />
     </div>
   );

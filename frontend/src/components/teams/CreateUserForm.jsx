@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createUser } from "@/api/user";
-import { toast } from 'sonner';
+import { toast } from 'react-hot-toast';
 
 const userSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
@@ -55,7 +55,22 @@ export function CreateUserForm({ onSuccess }) {
       onSuccess?.();
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create user');
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      const serverMessage = error?.response?.data?.message;
+
+      if (status === 409) {
+        if (code === 'EMAIL_IN_USE_IN_COMPANY') {
+          toast.error('Email already exists in your company. Try searching that user in Team Members and update their role instead.');
+          return;
+        }
+        if (code === 'EMAIL_IN_USE_GLOBAL') {
+          toast.error('This email is already registered on TenderFlow and cannot be reused for a new account.');
+          return;
+        }
+      }
+
+      toast.error(serverMessage || 'Failed to create user');
     },
   });
 

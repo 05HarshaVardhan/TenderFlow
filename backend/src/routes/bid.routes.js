@@ -7,6 +7,7 @@ const validate = require('../middleware/validate');
 const { uploadFields } = require('../middleware/upload');
 const { submitBidSchema } = require('../validation/bidSchema');
 const { generateBidPreSubmitReview } = require('../services/bidPreSubmitReviewService');
+const { createNotification, createNotificationWithOptionalEmail } = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -332,6 +333,7 @@ router.get('/:id/pre-submit-review', auth, requireRole('BIDDER', 'COMPANY_ADMIN'
 // PATCH /api/bids/:id/submit - STRICT VALIDATION
 router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, res) => {
   try {
+    const io = req.app.get('io');
     const bid = await Bid.findOne({
       _id: req.params.id,
       bidderCompany: req.user.companyId,
@@ -375,6 +377,23 @@ router.patch('/:id/submit', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async 
     await Tender.findByIdAndUpdate(bid.tender._id, {
       $addToSet: { bids: bid._id }
     });
+
+    if (bid.tender?.createdBy) {
+      await createNotification({
+        io,
+        userId: bid.tender.createdBy,
+        type: 'BID_SUBMITTED',
+        title: 'New Bid Received',
+        message: `A new bid was submitted for "${bid.tender.title}".`,
+        link: `/tenders/${bid.tender._id}`,
+        metadata: {
+          tenderId: bid.tender._id,
+          bidId: bid._id,
+          event: 'BID_SUBMITTED'
+        }
+      });
+    }
+
     // In bid.routes.js, add at the beginning of the route handler:
     console.log("this is from pathc bid/submit")
 console.log('Request body:', req.body);
@@ -389,7 +408,10 @@ console.log('Request headers:', req.headers['content-type']);
 // PATCH /api/bids/:id/award
 router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
   try {
-    const bid = await Bid.findById(req.params.id).populate('tender');
+    const io = req.app.get('io');
+    const bid = await Bid.findById(req.params.id)
+      .populate('tender', 'title ownerCompany createdBy')
+      .populate('submittedBy', 'email');
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
     const tender = bid.tender;
@@ -410,9 +432,56 @@ router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', '
 
     await Tender.findByIdAndUpdate(tender._id, { status: 'AWARDED' });
 
+    const losingBids = await Bid.find({
+      tender: tender._id,
+      _id: { $ne: bid._id },
+      status: 'SUBMITTED'
+    })
+      .select('_id submittedBy')
+      .lean();
+
     await Bid.updateMany(
       { tender: tender._id, _id: { $ne: bid._id }, status: 'SUBMITTED' },
       { status: 'REJECTED' }
+    );
+
+    if (bid.submittedBy?._id) {
+      await createNotificationWithOptionalEmail({
+        io,
+        userId: bid.submittedBy._id,
+        type: 'BID_ACCEPTED',
+        title: 'Bid Awarded',
+        message: `Congratulations. Your bid for "${tender.title}" has been awarded.`,
+        link: `/my-bids`,
+        metadata: {
+          tenderId: tender._id,
+          bidId: bid._id,
+          event: 'BID_ACCEPTED'
+        },
+        sendEmailToUser: true,
+        emailSubject: `Your bid was awarded - ${tender.title}`,
+        emailHtml: `<p>Your bid for <strong>${tender.title}</strong> has been awarded.</p>`
+      });
+    }
+
+    await Promise.all(
+      losingBids
+        .filter((item) => item?.submittedBy)
+        .map((item) =>
+          createNotification({
+            io,
+            userId: item.submittedBy,
+            type: 'BID_REJECTED',
+            title: 'Bid Rejected',
+            message: `Your bid for "${tender.title}" was not selected.`,
+            link: `/my-bids`,
+            metadata: {
+              tenderId: tender._id,
+              bidId: item._id,
+              event: 'BID_REJECTED'
+            }
+          })
+        )
     );
 
     res.json({ message: 'Tender awarded successfully!', winningBid: bid });
@@ -424,7 +493,10 @@ router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', '
 // PATCH /api/bids/:id/reject
 router.patch('/:id/reject', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
   try {
-    const bid = await Bid.findById(req.params.id).populate('tender');
+    const io = req.app.get('io');
+    const bid = await Bid.findById(req.params.id)
+      .populate('tender', 'title ownerCompany createdBy')
+      .populate('submittedBy', 'email');
     if (!bid) return res.status(404).json({ message: 'Bid not found' });
 
     const tender = bid.tender;
@@ -438,6 +510,22 @@ router.patch('/:id/reject', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 
 
     bid.status = 'REJECTED';
     await bid.save();
+
+    if (bid.submittedBy?._id) {
+      await createNotification({
+        io,
+        userId: bid.submittedBy._id,
+        type: 'BID_REJECTED',
+        title: 'Bid Rejected',
+        message: `Your bid for "${tender.title}" has been rejected.`,
+        link: `/my-bids`,
+        metadata: {
+          tenderId: tender._id,
+          bidId: bid._id,
+          event: 'BID_REJECTED'
+        }
+      });
+    }
 
     res.json({ message: 'Bid rejected successfully' });
   } catch (err) {
@@ -469,12 +557,13 @@ router.delete('/:id', auth, requireRole('BIDDER', 'COMPANY_ADMIN'), async (req, 
 // --- WITHDRAW BID ---
 router.patch('/:id/withdraw', auth, async (req, res) => {
   try {
+    const io = req.app.get('io');
     // 1. Find the bid and ensure it belongs to the user's company
     const bid = await Bid.findOne({
       _id: req.params.id,
       bidderCompany: req.user.companyId,
       status: { $ne: 'WITHDRAWN' } // Cannot withdraw an already withdrawn bid
-    });
+    }).populate('tender', 'title createdBy');
 
     if (!bid) {
       return res.status(404).json({ message: "Bid not found or already withdrawn" });
@@ -485,6 +574,22 @@ router.patch('/:id/withdraw', auth, async (req, res) => {
     bid.withdrawnAt = new Date();
     bid.withdrawnBy = req.user.id;
     await bid.save();
+
+    if (bid.tender?.createdBy) {
+      await createNotification({
+        io,
+        userId: bid.tender.createdBy,
+        type: 'BID_WITHDRAWN',
+        title: 'Bid Withdrawn',
+        message: `A bidder withdrew from "${bid.tender.title}".`,
+        link: `/tenders/${bid.tender._id}`,
+        metadata: {
+          tenderId: bid.tender._id,
+          bidId: bid._id,
+          event: 'BID_WITHDRAWN'
+        }
+      });
+    }
 
     res.json({ message: "Bid withdrawn. Your company is now ineligible for this tender.", bid });
   } catch (err) {

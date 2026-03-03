@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '@/api/axios';
 import { useAuth } from '@/context/authContext';
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ export default function TenderDetails() {
   const { state } = useAuth();
   const user = state?.user;
   const { id } = useParams();
+  const navigate = useNavigate();
   const [tender, setTender] = useState(null);
   const [bids, setBids] = useState([]);
   const [analysisReport, setAnalysisReport] = useState(null);
@@ -88,14 +89,8 @@ export default function TenderDetails() {
     fetchData();
   }, [id]);
 
-  const handleAward = async (bidId) => {
-    try {
-      await api.patch(`/tenders/${id}/award`, { winnerBidId: bidId });
-      toast.success("Tender awarded successfully!");
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to award tender");
-    }
+  const handleAward = () => {
+    navigate(`/tenders/evaluate/${id}`);
   };
 
   const handleAnalyzeBids = async () => {
@@ -421,10 +416,18 @@ export default function TenderDetails() {
                       <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
                         <User className="h-5 w-5 text-zinc-400" />
                       </div>
-                      <div>
+                    <div>
                         <div className="font-bold text-zinc-100">
                           {bid.bidderCompany?.name || bid.bidderName || "Anonymous Vendor"}
                         </div>
+                        {bid.bidderCompany?._id && (
+                          <Link
+                            to={`/companies/public/${bid.bidderCompany._id}`}
+                            className="text-xs text-blue-400 hover:underline inline-block mt-1"
+                          >
+                            View Company Profile
+                          </Link>
+                        )}
                         <div className="text-xs text-zinc-500 flex items-center gap-1">
                           <ShieldCheck className="h-3 w-3" /> Two-Envelope Verified
                         </div>
@@ -477,10 +480,10 @@ export default function TenderDetails() {
 
                     {tender.status === 'CLOSED' && (
                       <Button 
-                        onClick={() => handleAward(bid._id)}
+                        onClick={handleAward}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
                       >
-                        <Trophy className="mr-2 h-4 w-4" /> Award Tender
+                        <Trophy className="mr-2 h-4 w-4" /> Open Award Wizard
                       </Button>
                     )}
 

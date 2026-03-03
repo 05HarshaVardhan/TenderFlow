@@ -63,6 +63,16 @@ const userSchema = new mongoose.Schema(
     emailVerificationTokenExpiry: {
       type: Date,
     },
+    profileImage: {
+      url: {
+        type: String,
+        trim: true,
+      },
+      publicId: {
+        type: String,
+        trim: true,
+      },
+    },
   },
   {
     timestamps: true,

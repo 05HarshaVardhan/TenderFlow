@@ -19,7 +19,9 @@ const statusStyles = {
 };
 
 export default function TenderListTable({ tenders, onAction }) {
-  if (tenders.length === 0) {
+  const safeTenders = Array.isArray(tenders) ? tenders : [];
+
+  if (safeTenders.length === 0) {
     return (
       <div className="text-center py-12 border border-dashed border-zinc-800 rounded-xl">
         <p className="text-zinc-500">No tenders found. Create your first project to get started.</p>
@@ -40,7 +42,7 @@ export default function TenderListTable({ tenders, onAction }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tenders.map((tender) => (
+          {safeTenders.map((tender) => (
             <TableRow key={tender._id} className="border-zinc-800 hover:bg-zinc-900/30 transition-colors">
               <TableCell>
                 <div className="font-medium text-zinc-200">{tender.title}</div>
@@ -55,7 +57,7 @@ export default function TenderListTable({ tenders, onAction }) {
                 ${tender.estimatedValue?.toLocaleString() || '0'}
               </TableCell>
               <TableCell className="text-zinc-400 text-sm">
-                {new Date(tender.endDate).toLocaleDateString()}
+                {tender.endDate ? new Date(tender.endDate).toLocaleDateString() : 'No deadline'}
               </TableCell>
               <TableCell className="text-right">
                 <DropdownMenu>

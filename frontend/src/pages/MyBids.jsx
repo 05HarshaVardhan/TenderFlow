@@ -208,6 +208,7 @@ export default function MyBids() {
   const [submitConfirmData, setSubmitConfirmData] = useState(null);
   const [submitReview, setSubmitReview] = useState(null);
   const [submitReviewLoading, setSubmitReviewLoading] = useState(false);
+  const [isSubmittingBid, setIsSubmittingBid] = useState(false);
 
   // --- FILTER STATES (Synced with Tender Logic) ---
   const [search, setSearch] = useState("");
@@ -277,6 +278,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
     }
 
     try {
+      setIsSubmittingBid(true);
       await api.patch(`/bids/${submitConfirmData._id}/submit`);
       toast.success("Bid submitted successfully!");
       setSubmitConfirmData(null);
@@ -284,6 +286,8 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
       fetchMyBids(); 
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to submit bid");
+    } finally {
+      setIsSubmittingBid(false);
     }
   };
 
@@ -345,7 +349,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer min-w-[120px]"
+              className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer min-w-[120px] hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
             >
               <option value="All" className="bg-zinc-950">All Statuses</option>
               <option value="DRAFT" className="bg-zinc-950">Drafts</option>
@@ -360,7 +364,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer"
+              className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
             >
               <option value="newest" className="bg-zinc-950">Newest First</option>
               <option value="oldest" className="bg-zinc-950">Oldest First</option>
@@ -558,10 +562,17 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
               <div className="flex flex-col gap-2 pt-4">
                 <Button
                   onClick={confirmSubmission}
-                  disabled={submitReviewLoading || (submitReview && submitReview.readinessScore < 100)}
+                  disabled={isSubmittingBid || submitReviewLoading || (submitReview && submitReview.readinessScore < 100)}
                   className="bg-blue-600 hover:bg-blue-700 w-full font-bold disabled:opacity-50"
                 >
-                  Confirm & Submit Proposal
+                  {isSubmittingBid ? (
+                    <>
+                      <Clock className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Confirm & Submit Proposal"
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
@@ -570,6 +581,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
                     setSubmitReview(null);
                     setSubmitReviewLoading(false);
                   }}
+                  disabled={isSubmittingBid}
                   className="text-zinc-500"
                 >
                   Cancel

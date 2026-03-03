@@ -44,6 +44,34 @@ const companySchema = new mongoose.Schema(
         trim: true,
       },
     ],
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+      default: '',
+    },
+    website: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    logo: {
+      url: { type: String, trim: true },
+      publicId: { type: String, trim: true },
+    },
+    certificates: [
+      {
+        title: { type: String, trim: true, required: true },
+        description: { type: String, trim: true, default: '' },
+        fileUrl: { type: String, trim: true, required: true },
+        filePublicId: { type: String, trim: true, required: true },
+        isPublic: { type: Boolean, default: true },
+        issuedBy: { type: String, trim: true, default: '' },
+        validFrom: { type: Date },
+        validTill: { type: Date },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     location: {
       country: { type: String, trim: true },
       state: { type: String, trim: true },

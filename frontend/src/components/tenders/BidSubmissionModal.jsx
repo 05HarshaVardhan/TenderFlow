@@ -23,7 +23,6 @@ const STEPS = [
 
 export default function BidSubmissionModal({ isOpen, onClose, tender, existingBid, isViewOnly, onRefresh }) {
   const [step, setStep] = useState(1);
-  const [isExpanded, setIsExpanded] = useState(false); // NEW: For proposal toggle
   const [submitting, setSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState({});
@@ -420,13 +419,17 @@ console.log('emdDoc:', emdDoc)
           ) : (
             <div className="flex justify-between w-full">
                <div className="flex gap-2">
-                {step > 1 && <Button variant="ghost" onClick={prevStep}><ChevronLeft className="mr-2 h-4 w-4"/> Back</Button>}
-                <Button variant="outline" onClick={() => handleAction(false)}>{isSaving ? <Loader2 className="animate-spin" /> : "Save Draft"}</Button>
+                {step > 1 && <Button variant="ghost" onClick={prevStep} disabled={isSaving || submitting}><ChevronLeft className="mr-2 h-4 w-4"/> Back</Button>}
+                <Button variant="outline" onClick={() => handleAction(false)} disabled={isSaving || submitting}>
+                  {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Draft"}
+                </Button>
               </div>
               {step < 4 ? (
-                <Button onClick={nextStep} className="bg-blue-600">Next <ChevronRight className="ml-2 h-4 w-4"/></Button>
+                <Button onClick={nextStep} className="bg-blue-600" disabled={isSaving || submitting}>Next <ChevronRight className="ml-2 h-4 w-4"/></Button>
               ) : (
-                <Button onClick={() => handleAction(true)} className="bg-emerald-600">Submit Final Bid</Button>
+                <Button onClick={() => handleAction(true)} className="bg-emerald-600" disabled={isSaving || submitting}>
+                  {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Final Bid"}
+                </Button>
               )}
             </div>
           )}

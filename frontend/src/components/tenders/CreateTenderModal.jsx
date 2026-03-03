@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import api from '@/api/axios';
 import { toast } from "react-hot-toast";
 
+const DEFAULT_CATEGORIES = [
+  'IT Services',
+  'Construction',
+  'Consultancy',
+  'Logistics',
+  'Manufacturing',
+  'Healthcare',
+];
+
 const INITIAL_STATE = {
   title: '',
   description: '',
@@ -21,11 +30,45 @@ const INITIAL_STATE = {
 
 export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData = null }) {
   const [formData, setFormData] = useState(INITIAL_STATE);
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORIES);
+  const [categoryMode, setCategoryMode] = useState('select');
+  const [customCategory, setCustomCategory] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [newFiles, setNewFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+
+    const loadCategories = async () => {
+      try {
+        const response = await api.get('/tenders/categories');
+        const apiCategories = Array.isArray(response.data) ? response.data : [];
+        const merged = Array.from(new Set(
+          [...DEFAULT_CATEGORIES, ...apiCategories]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b));
+
+        if (isMounted) {
+          setCategoryOptions(merged);
+        }
+      } catch {
+        if (isMounted) {
+          setCategoryOptions(DEFAULT_CATEGORIES);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (editData && isOpen) {
@@ -47,22 +90,40 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
         tags: Array.isArray(editData.tags) ? editData.tags.join(', ') : (editData.tags || ''),
         documents: editData.documents || [],
       });
+      const normalizedCategory = String(editData.category || '').trim();
+      const matchingCategory = categoryOptions.find(
+        option => option.toLowerCase() === normalizedCategory.toLowerCase()
+      );
+      if (normalizedCategory && !matchingCategory) {
+        setCategoryMode('custom');
+        setCustomCategory(normalizedCategory);
+      } else {
+        setCategoryMode('select');
+        setCustomCategory('');
+      }
       setAiPrompt('');
       setNewFiles([]);
       setErrors({}); // Reset errors on open
     } else if (!editData && isOpen) {
       setFormData(INITIAL_STATE);
+      setCategoryMode('select');
+      setCustomCategory('');
       setAiPrompt('');
       setNewFiles([]);
       setErrors({});
     }
   }, [editData, isOpen]);
 
+  const getResolvedCategory = () => (
+    categoryMode === 'custom' ? customCategory.trim() : String(formData.category || '').trim()
+  );
+
   // --- UPDATED VALIDATION LOGIC ---
   const validateForDraft = () => {
     const newErrors = {};
+    const resolvedCategory = getResolvedCategory();
     if (!formData.title.trim()) newErrors.title = "Tender title is required";
-    if (!formData.category) newErrors.category = "Please select a category";
+    if (!resolvedCategory) newErrors.category = "Please select or enter a category";
     if (!formData.description.trim()) newErrors.description = "Brief description is required";
     if (!formData.endDate) newErrors.endDate = "Set a deadline date";
 
@@ -91,6 +152,33 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
     }
   };
 
+  const handleCategorySelection = (e) => {
+    const value = e.target.value;
+
+    if (value === '__custom__') {
+      setCategoryMode('custom');
+      if (errors.category) {
+        setErrors(prev => {
+          const newErrs = { ...prev };
+          delete newErrs.category;
+          return newErrs;
+        });
+      }
+      return;
+    }
+
+    setCategoryMode('select');
+    setCustomCategory('');
+    setFormData(prev => ({ ...prev, category: value }));
+    if (errors.category) {
+      setErrors(prev => {
+        const newErrs = { ...prev };
+        delete newErrs.category;
+        return newErrs;
+      });
+    }
+  };
+
   const handleRemoveExistingFile = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -109,16 +197,27 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
     try {
       const response = await api.post('/tenders/ai/draft', { prompt });
       const draft = response.data?.draft || {};
+      const aiCategory = String(draft.category || '').trim();
+      const matchingCategory = categoryOptions.find(
+        option => option.toLowerCase() === aiCategory.toLowerCase()
+      );
 
       setFormData(prev => ({
         ...prev,
         title: draft.title || prev.title,
         description: draft.description || prev.description,
-        category: draft.category || prev.category,
+        category: matchingCategory || prev.category,
         estimatedValue: draft.estimatedValue ?? prev.estimatedValue,
         emdAmount: draft.emdAmount ?? prev.emdAmount,
         tags: Array.isArray(draft.tags) ? draft.tags.join(', ') : prev.tags
       }));
+      if (aiCategory && !matchingCategory) {
+        setCategoryMode('custom');
+        setCustomCategory(aiCategory);
+      } else if (matchingCategory) {
+        setCategoryMode('select');
+        setCustomCategory('');
+      }
 
       setErrors(prev => {
         const next = { ...prev };
@@ -145,13 +244,14 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
 
     setLoading(true);
     try {
+        const resolvedCategory = getResolvedCategory();
         const url = editData ? `/tenders/${editData._id}` : '/tenders';
         const method = editData ? 'patch' : 'post';
         const hasNewFiles = newFiles.length > 0;
         const basePayload = {
           title: formData.title,
           description: formData.description,
-          category: formData.category,
+          category: resolvedCategory,
           estimatedValue: formData.estimatedValue,
           emdAmount: formData.emdAmount,
           endDate: formData.endDate,
@@ -273,16 +373,35 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
             <div className="space-y-1">
               <FieldLabel label="Category" name="category" />
               <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
+                name="categorySelect"
+                value={categoryMode === 'custom' ? '__custom__' : formData.category}
+                onChange={handleCategorySelection}
                 className={`w-full bg-zinc-900 border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none transition-all`}
               >
                 <option value="">Select Category</option>
-                <option value="IT Services">IT Services</option>
-                <option value="Construction">Construction</option>
-                <option value="Healthcare">Healthcare</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+                <option value="__custom__">Custom Category...</option>
               </select>
+              {categoryMode === 'custom' && (
+                <input
+                  name="customCategory"
+                  value={customCategory}
+                  onChange={(e) => {
+                    setCustomCategory(e.target.value);
+                    if (errors.category) {
+                      setErrors(prev => {
+                        const newErrs = { ...prev };
+                        delete newErrs.category;
+                        return newErrs;
+                      });
+                    }
+                  }}
+                  placeholder="Enter custom category"
+                  className={`mt-2 w-full bg-zinc-900 border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
+                />
+              )}
             </div>
           </div>
 

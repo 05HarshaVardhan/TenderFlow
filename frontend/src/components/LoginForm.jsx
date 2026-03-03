@@ -1,18 +1,20 @@
 //frontend\src\components\LoginForm.jsx
 import { useState } from 'react'
 import { useAuth } from '../context/authContext.jsx'
+import { useTheme } from '../context/useTheme.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Github, Loader2 } from 'lucide-react'
+import { Loader2, Moon, Sun } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 export default function LoginForm() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -29,7 +31,7 @@ export default function LoginForm() {
       } else {
         toast.error(result.error || 'Invalid credentials', { id: loginToast })
       }
-    } catch (err) {
+    } catch {
       toast.error("Connection failed. Is the server running?", { id: loginToast })
     } finally {
       setLoading(false)
@@ -37,76 +39,113 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-        <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Login</h1>
-          <p className="text-sm text-zinc-400">Enter your credentials to access your account</p>
-        </div>
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 text-foreground lg:p-8">
+      <Button
+        variant="outline"
+        size="icon"
+        type="button"
+        onClick={toggleTheme}
+        className="absolute right-4 top-4 border-border bg-card text-foreground hover:bg-accent"
+        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      >
+        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </Button>
 
-        <div className="grid gap-6">
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label className="sr-only" htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  placeholder="name@example.com"
-                  type="email"
-                  disabled={loading}
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="bg-zinc-900/50 border-zinc-800 text-white"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label className="sr-only" htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  placeholder="Password"
-                  type="password"
-                  disabled={loading}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="bg-zinc-900/50 border-zinc-800 text-white"
-                  required
-                />
-              </div>
-              <Button disabled={loading} className="w-full bg-white text-black hover:bg-zinc-200">
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Please wait
-                  </>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </div>
-          </form>
-
+      <div className="mx-auto grid w-full max-w-6xl overflow-hidden rounded-2xl border border-border bg-card shadow-lg lg:grid-cols-2">
+        <section className="relative hidden lg:flex flex-col justify-between border-r border-border bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 p-10 text-zinc-100">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_44%)]" />
           <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-zinc-800" />
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100/95">
+                <div className="h-4 w-4 rotate-45 bg-zinc-900" />
+              </div>
+              <span className="text-2xl font-bold tracking-tight">TenderFlow</span>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-black px-2 text-zinc-500">Or continue with</span>
+            <h2 className="text-3xl font-semibold leading-tight">
+              Welcome back to your control center
+            </h2>
+            <p className="mt-4 max-w-md text-sm text-zinc-300">
+              Continue where you left off with live updates, active tenders, and team workflows in one place.
+            </p>
+          </div>
+          <div className="relative space-y-3 text-sm text-zinc-300">
+            <p>Resume active bids instantly</p>
+            <p>Monitor team performance at a glance</p>
+            <p>Stay aligned with tender deadlines</p>
+          </div>
+        </section>
+
+        <section className="flex items-center justify-center p-6 sm:p-8 lg:p-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8 text-center">
+            <div className="mb-4 flex items-center justify-center gap-3 lg:hidden">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground">
+                <div className="h-4 w-4 rotate-45 bg-background" />
+              </div>
+              <span className="text-2xl font-bold tracking-tight">TenderFlow</span>
             </div>
+            <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Enter your credentials to access your account
+            </p>
           </div>
 
-          <Button variant="outline" type="button" disabled={loading} className="border-zinc-800 text-white hover:bg-zinc-900">
-            <Github className="mr-2 h-4 w-4" />
-            GitHub
-          </Button>
-        </div>
+            <form onSubmit={handleSubmit}>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label className="sr-only" htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    placeholder="name@example.com"
+                    type="email"
+                    disabled={loading}
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="border-border bg-card text-foreground"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label className="sr-only" htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    placeholder="Password"
+                    type="password"
+                    disabled={loading}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="border-border bg-card text-foreground"
+                    required
+                  />
+                </div>
+                <Button disabled={loading} className="w-full">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Please wait
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+              </div>
+            </form>
 
-        <p className="px-8 text-center text-sm text-zinc-500">
-          By clicking continue, you agree to our{" "}
-          <a href="#" className="underline underline-offset-4 hover:text-zinc-300">Terms of Service</a>{" "}
-          and{" "}
-          <a href="#" className="underline underline-offset-4 hover:text-zinc-300">Privacy Policy</a>.
-        </p>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            By clicking continue, you agree to our{" "}
+            <a href="#" className="underline underline-offset-4 hover:text-foreground">Terms of Service</a>{" "}
+            and{" "}
+            <a href="#" className="underline underline-offset-4 hover:text-foreground">Privacy Policy</a>.
+          </p>
+
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            New company?{" "}
+            <Link to="/register-admin" className="underline underline-offset-4 hover:text-foreground">
+              Register company admin
+            </Link>
+          </p>
+          </div>
+        </section>
       </div>
     </div>
   )

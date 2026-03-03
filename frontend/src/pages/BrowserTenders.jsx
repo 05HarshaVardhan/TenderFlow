@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import BidSubmissionModal from "@/components/tenders/BidSubmissionModal";
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Filter, Calendar, DollarSign, Briefcase, Building2, AlertOctagon } from "lucide-react";
 import { toast } from "react-hot-toast";
@@ -122,6 +123,19 @@ export default function BrowseTenders() {
                 </p>
                 
                 <div className="flex flex-col gap-2 text-sm">
+                  {tender.ownerCompany?.name && (
+                    <div className="flex items-center justify-between gap-2 text-zinc-400">
+                      <span className="truncate">By: {tender.ownerCompany.name}</span>
+                      {tender.ownerCompany?._id && (
+                        <Link
+                          to={`/companies/public/${tender.ownerCompany._id}`}
+                          className="text-blue-400 hover:underline whitespace-nowrap"
+                        >
+                          View Company Profile
+                        </Link>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-zinc-300">
                     <DollarSign className="h-4 w-4 text-emerald-500" />
                     <span className="font-semibold">

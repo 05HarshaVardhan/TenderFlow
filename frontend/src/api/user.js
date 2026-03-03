@@ -16,6 +16,17 @@ export const updateUser = async (id, updates) => {
   return data;
 };
 
+export const blockUser = async (id) => {
+  const { data } = await api.patch(`/users/${id}/block`);
+  return data;
+};
+
+export const unblockUser = async (id) => {
+  const { data } = await api.patch(`/users/${id}/unblock`);
+  return data;
+};
+
 export const deleteUser = async (id) => {
-  await api.delete(`/users/${id}`);
+  const { data } = await api.delete(`/users/${id}`);
+  return data;
 };

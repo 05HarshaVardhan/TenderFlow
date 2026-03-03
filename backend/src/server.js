@@ -6,10 +6,13 @@ const connectDB = require('./config/db');
 const { authenticateSocket } = require('./middleware/auth');
 const { sendMessageInternal } = require('./controllers/messageController');
 const Team = require('./models/Team'); // Needed to auto-join rooms
+const { startTenderAutoCloseJob } = require('./jobs/tenderAutoCloseJob');
+const { captureException } = require('./services/monitoringService');
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   await connectDB();
+  startTenderAutoCloseJob();
 
   const server = http.createServer(app);
   
@@ -118,3 +121,15 @@ async function startServer() {
 }
 
 startServer();
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+  captureException(reason instanceof Error ? reason : new Error(String(reason)), {
+    source: 'process.unhandledRejection'
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  captureException(error, { source: 'process.uncaughtException' });
+});

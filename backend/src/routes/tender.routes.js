@@ -8,6 +8,7 @@ const { publishTenderSchema } = require('../validation/tenderSchema');
 const { uploadMultiple } = require('../middleware/upload');
 const { analyzeTenderBids } = require('../services/bidAnalysisService');
 const { generateTenderDraft } = require('../services/tenderDraftService');
+const { createNotification, createNotificationWithOptionalEmail } = require('../services/notificationService');
 const {
   buildTenderSearchText,
   generateEmbedding,
@@ -475,6 +476,29 @@ router.get('/available', auth, async (req, res) => {
   }
 });
 
+router.get('/categories', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'), async (req, res) => {
+  try {
+    const query = {};
+    if (req.user.role !== 'SUPER_ADMIN') {
+      query.ownerCompany = req.user.companyId;
+    }
+
+    const rawCategories = await Tender.distinct('category', query);
+    const categories = Array.from(
+      new Set(
+        (rawCategories || [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+
+    res.json(categories);
+  } catch (err) {
+    console.error('Fetch tender categories error:', err);
+    res.status(500).json({ message: 'Failed to fetch categories' });
+  }
+});
+
 router.get('/:id', auth, async (req, res) => {
   try {
     const tender = await Tender.findById(req.params.id)
@@ -513,6 +537,7 @@ router.patch('/:id/close', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), 
 
 router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), async (req, res) => {
   try {
+    const io = req.app.get('io');
     const { winningBidId } = req.body;
     if (!winningBidId) return res.status(400).json({ message: 'Winning Bid ID is required' });
 
@@ -524,10 +549,53 @@ router.patch('/:id/award', auth, requireRole('COMPANY_ADMIN', 'TENDER_POSTER'), 
 
     if (!tender) return res.status(404).json({ message: 'Closed tender not found' });
 
-    await Bid.findByIdAndUpdate(winningBidId, { status: 'ACCEPTED' });
+    const winningBid = await Bid.findByIdAndUpdate(
+      winningBidId,
+      { status: 'ACCEPTED' },
+      { new: true }
+    )
+      .populate('submittedBy', 'email')
+      .lean();
+
+    const losingBids = await Bid.find(
+      { tender: tender._id, _id: { $ne: winningBidId }, status: 'SUBMITTED' },
+      '_id submittedBy'
+    ).lean();
+
     await Bid.updateMany(
       { tender: tender._id, _id: { $ne: winningBidId }, status: 'SUBMITTED' },
       { $set: { status: 'REJECTED' } }
+    );
+
+    if (winningBid?.submittedBy?._id) {
+      await createNotificationWithOptionalEmail({
+        io,
+        userId: winningBid.submittedBy._id,
+        type: 'BID_ACCEPTED',
+        title: 'Bid Awarded',
+        message: `Congratulations. Your bid for "${tender.title}" has been awarded.`,
+        link: `/my-bids`,
+        metadata: { tenderId: tender._id, bidId: winningBidId, event: 'BID_ACCEPTED' },
+        sendEmailToUser: true,
+        emailSubject: `Your bid was awarded - ${tender.title}`,
+        emailHtml: `<p>Your bid for <strong>${tender.title}</strong> has been awarded.</p>`
+      });
+    }
+
+    await Promise.all(
+      losingBids
+        .filter((item) => item?.submittedBy)
+        .map((item) =>
+          createNotification({
+            io,
+            userId: item.submittedBy,
+            type: 'BID_REJECTED',
+            title: 'Bid Rejected',
+            message: `Your bid for "${tender.title}" was not selected.`,
+            link: `/my-bids`,
+            metadata: { tenderId: tender._id, bidId: item._id, event: 'BID_REJECTED' }
+          })
+        )
     );
 
     res.json({ message: 'Tender awarded successfully', tender });

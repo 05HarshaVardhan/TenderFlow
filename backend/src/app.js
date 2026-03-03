@@ -12,7 +12,18 @@ const bidRoutes = require("./routes/bid.routes");
 const userRoutes = require("./routes/user.routes");
 const teamRoutes = require("./routes/team.routes");
 const messageRoutes = require("./routes/messageRoutes");
+const notificationRoutes = require("./routes/notification.routes");
+const companyRoutes = require("./routes/company.routes");
+const developerRoutes = require("./routes/developer.routes");
 const { cloudinary } = require("./utils/cloudinary");
+const {
+  initMonitoring,
+  captureException,
+  getMonitoringMiddleware,
+  getMonitoringErrorHandler
+} = require('./services/monitoringService');
+
+initMonitoring();
 
 const app = express();
 
@@ -30,6 +41,7 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+app.use(getMonitoringMiddleware());
 
 // Cloudinary connection check
 cloudinary.api
@@ -49,10 +61,24 @@ app.use('/api/bids', bidRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/developer', developerRoutes);
+
+const monitoringErrorHandler = getMonitoringErrorHandler();
+if (monitoringErrorHandler) {
+  app.use(monitoringErrorHandler);
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
+  captureException(err, {
+    method: req.method,
+    path: req.originalUrl,
+    userId: req.user?.id || null
+  });
+
   const isMulterError = err?.name === 'MulterError';
   const statusCode = err.statusCode || err.status || (isMulterError ? 400 : 500);
   const exposeDetails = process.env.NODE_ENV !== 'production';

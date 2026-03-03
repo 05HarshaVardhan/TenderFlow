@@ -62,6 +62,14 @@ const authReducer = (state, action) => {
         isAuthenticated: false,
         loading: false
       }
+    case 'UPDATE_USER': {
+      const updatedUser = { ...(state.user || {}), ...(action.payload || {}) }
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      return {
+        ...state,
+        user: updatedUser,
+      }
+    }
     case 'STOP_LOADING':
       return { ...state, loading: false }
     default:
@@ -129,9 +137,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => dispatch({ type: 'LOGOUT' })
+  const updateUser = (payload) => dispatch({ type: 'UPDATE_USER', payload })
 
   return (
-    <AuthContext.Provider value={{ state, login, logout, axios: axiosInstance }}>
+    <AuthContext.Provider value={{ state, login, logout, updateUser, axios: axiosInstance }}>
       {children}
     </AuthContext.Provider>
   )

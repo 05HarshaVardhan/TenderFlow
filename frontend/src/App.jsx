@@ -6,6 +6,7 @@ import { useAuth } from './context/authContext';
 import { WebSocketProvider } from './contexts/WebSocketContext/WebSocketContext';
 // Components & Layout
 import LoginForm from './components/LoginForm';
+import AdminRegistrationForm from './components/AdminRegistrationForm';
 import Dashboard from './components/Dashboard';
 import BrowseTenders from './pages/BrowserTenders';
 import Layout from './components/Layout';
@@ -15,6 +16,10 @@ import MyBids from './pages/MyBids';
 import TenderEvaluation from './pages/TenderEvaluation';
 import TeamsPage from './components/teams';
 import MessagesPage from './pages/MessagesPage';
+import NotificationsPage from './pages/NotificationsPage';
+import SettingsPage from './pages/SettingsPage';
+import PublicCompanyProfilePage from './pages/PublicCompanyProfilePage';
+import DeveloperPanel from './pages/DeveloperPanel';
 
 const queryClient = new QueryClient();
 
@@ -23,7 +28,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   
   if (state.loading) {
     return (
-      <div className="h-screen w-screen bg-black flex items-center justify-center text-white">
+      <div className="h-screen w-screen bg-background text-foreground flex items-center justify-center">
         <div className="animate-pulse text-xl">Loading...</div>
       </div>
     );
@@ -47,6 +52,15 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<LoginForm />} />
+            <Route path="/register-admin" element={<AdminRegistrationForm />} />
+            <Route
+              path="/companies/public/:companyId"
+              element={
+                <ProtectedRoute>
+                  <PublicCompanyProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/dashboard"
@@ -128,9 +142,42 @@ function App() {
             <Route
               path="/teams"
               element={
-                <ProtectedRoute allowedRoles={['COMPANY_ADMIN', 'TENDER_POSTER']}>
+                <ProtectedRoute allowedRoles={['COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN']}>
                   <Layout>
                     <TeamsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <NotificationsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute allowedRoles={['COMPANY_ADMIN']}>
+                  <Layout>
+                    <SettingsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/developer-panel"
+              element={
+                <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                  <Layout>
+                    <DeveloperPanel />
                   </Layout>
                 </ProtectedRoute>
               }

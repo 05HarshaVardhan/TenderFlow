@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStats } from '@/hooks/useDashboard';
 import { useAuth } from '@/context/authContext';
@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import CreateTenderModal from '@/components/tenders/CreateTenderModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function ManageTenders() {
   const navigate = useNavigate();
@@ -41,8 +42,29 @@ export default function ManageTenders() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTender, setSelectedTender] = useState(null);
   const [publishConfirmData, setPublishConfirmData] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    id: null,
+    action: null,
+    title: '',
+    description: '',
+  });
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const isFiltered = search !== "" || category !== "All" || sortBy !== "newest";
+  const categoryOptions = useMemo(() => {
+    const discovered = Array.from(new Set(
+      (tenders || [])
+        .map((tender) => String(tender?.category || '').trim())
+        .filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b));
+
+    if (category !== 'All' && !discovered.includes(category)) {
+      discovered.unshift(category);
+    }
+
+    return ['All', ...discovered];
+  }, [tenders, category]);
 
   const clearFilters = () => {
     setSearch("");
@@ -58,6 +80,17 @@ export default function ManageTenders() {
   const openEditModal = (tender) => {
     setSelectedTender(tender);
     setIsModalOpen(true);
+  };
+
+  const executeAction = async (id, action) => {
+    if (action === 'delete') {
+      await api.delete(`/tenders/${id}`);
+    } else {
+      await api.patch(`/tenders/${id}/${action}`);
+    }
+
+    toast.success(`Tender ${action}ed successfully`);
+    refreshData();
   };
 
   const handleAction = async (id, action) => {
@@ -80,19 +113,36 @@ export default function ManageTenders() {
     }
 
     try {
-      if (action === 'delete' && !window.confirm('Permanently delete this draft?')) return;
-      if (action === 'close' && !window.confirm('Close this tender for bidding?')) return;
-
-      if (action === 'delete') {
-        await api.delete(`/tenders/${id}`);
-      } else {
-        await api.patch(`/tenders/${id}/${action}`);
+      if (action === 'delete' || action === 'close') {
+        setConfirmDialog({
+          open: true,
+          id,
+          action,
+          title: action === 'delete' ? 'Delete Draft Tender?' : 'Close Tender?',
+          description:
+            action === 'delete'
+              ? 'This draft will be permanently deleted and cannot be recovered.'
+              : 'This will stop new bids from being submitted for this tender.',
+        });
+        return;
       }
 
-      toast.success(`Tender ${action}ed successfully`);
-      refreshData();
+      await executeAction(id, action);
     } catch (err) {
       toast.error(err.response?.data?.message || `Failed to ${action}`);
+    }
+  };
+
+  const confirmAction = async () => {
+    if (!confirmDialog.id || !confirmDialog.action) return;
+    setConfirmLoading(true);
+    try {
+      await executeAction(confirmDialog.id, confirmDialog.action);
+      setConfirmDialog({ open: false, id: null, action: null, title: '', description: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Failed to ${confirmDialog.action}`);
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -167,14 +217,17 @@ export default function ManageTenders() {
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer min-w-[120px]"
+        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer min-w-[120px] hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
       >
-        <option value="All" className="bg-zinc-950 text-white">All Categories</option>
-        <option value="IT Services" className="bg-zinc-950 text-white">IT Services</option>
-        <option value="Construction" className="bg-zinc-950 text-white">Construction</option>
-        <option value="Consultancy" className="bg-zinc-950 text-white">Consultancy</option>
-        <option value="Logistics" className="bg-zinc-950 text-white">Logistics</option>
-        <option value="Manufacturing" className="bg-zinc-950 text-white">Manufacturing</option>
+        {categoryOptions.map((option) => (
+          <option
+            key={option}
+            value={option}
+            className="bg-zinc-950 text-white"
+          >
+            {option === 'All' ? 'All Categories' : option}
+          </option>
+        ))}
       </select>
     </div>
 
@@ -183,7 +236,7 @@ export default function ManageTenders() {
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer"
+        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
       >
         <option value="All" className="bg-zinc-950 text-white">All Statuses</option>
         <option value="DRAFT" className="bg-zinc-950 text-white">Drafts Only</option>
@@ -198,7 +251,7 @@ export default function ManageTenders() {
       <select
         value={sortBy}
         onChange={(e) => setSortBy(e.target.value)}
-        className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer"
+        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
       >
         <option value="newest" className="bg-zinc-950 text-white">Newest First</option>
         <option value="oldest" className="bg-zinc-950 text-white">Oldest First</option>
@@ -462,6 +515,20 @@ export default function ManageTenders() {
           setIsModalOpen(false);
           refreshData();
         }}
+      />
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => {
+          if (!open && !confirmLoading) {
+            setConfirmDialog({ open: false, id: null, action: null, title: '', description: '' });
+          }
+        }}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmLabel={confirmDialog.action === 'delete' ? 'Delete' : 'Close Tender'}
+        confirmVariant={confirmDialog.action === 'delete' ? 'destructive' : 'default'}
+        onConfirm={confirmAction}
+        isLoading={confirmLoading}
       />
     </div>
   );

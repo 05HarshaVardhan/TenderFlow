@@ -7,10 +7,17 @@ const Company = require('../models/Company');
 const { auth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const validate = require('../middleware/validate');
-const { registerCompanyAdminSchema, loginSchema } = require('../validation/authSchema');
+const {
+  registerCompanyAdminSchema,
+  loginSchema,
+  registerSuperAdminSchema,
+} = require('../validation/authSchema');
 const { sendEmail } = require('../utils/email');
 
 const router = express.Router();
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const PLATFORM_COMPANY_NAME = 'TenderFlow Platform';
+const PLATFORM_COMPANY_DOMAIN = 'tenderflow.internal';
 
 /**
  * HELPER: Generate clean user object for response
@@ -24,7 +31,23 @@ const getSafeUser = (user, company) => ({
   companyId: company?._id || user.company,
   companyName: company?.name || user.companyName,
   emailVerified: user.emailVerified,
+  profileImageUrl: user.profileImage?.url || null,
 });
+
+const getOrCreatePlatformCompany = async () => {
+  let company = await Company.findOne({ emailDomain: PLATFORM_COMPANY_DOMAIN });
+  if (company) return company;
+
+  company = await Company.create({
+    name: PLATFORM_COMPANY_NAME,
+    emailDomain: PLATFORM_COMPANY_DOMAIN,
+    industry: 'Software',
+    services: ['Platform Administration'],
+    isVerified: true,
+  });
+
+  return company;
+};
 
 // GET /api/auth/me
 router.get('/me', auth, async (req, res) => {
@@ -45,6 +68,7 @@ router.get('/me', auth, async (req, res) => {
       companyId: user.company?._id,
       companyName: user.company?.name,
       emailVerified: user.emailVerified,
+      profileImageUrl: user.profileImage?.url || null,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -64,13 +88,38 @@ router.post('/register-company-admin', validate(registerCompanyAdminSchema), asy
       adminPassword,
     } = req.body;
 
-    const existingUser = await User.findOne({ email: adminEmail.toLowerCase() });
+    const normalizedAdminEmail = adminEmail.toLowerCase();
+    const normalizedDomain = emailDomain.toLowerCase().replace(/^@/, '');
+    const adminEmailDomain = normalizedAdminEmail.split('@')[1];
+
+    if (adminEmailDomain !== normalizedDomain) {
+      return res
+        .status(400)
+        .json({ message: 'Admin email must belong to the provided company domain' });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedAdminEmail });
     if (existingUser) return res.status(409).json({ message: 'Email already registered' });
+
+    const existingCompanyByDomain = await Company.findOne({ emailDomain: normalizedDomain }).lean();
+    if (existingCompanyByDomain) {
+      return res
+        .status(409)
+        .json({ message: 'A company with this email domain is already registered' });
+    }
+
+    const companyNameRegex = new RegExp(`^${escapeRegExp(companyName.trim())}$`, 'i');
+    const existingCompanyByName = await Company.findOne({ name: companyNameRegex }).lean();
+    if (existingCompanyByName) {
+      return res
+        .status(409)
+        .json({ message: 'A company with this name is already registered' });
+    }
 
     // 1. Create company
     const company = await Company.create({
-      name: companyName,
-      emailDomain: emailDomain.toLowerCase(),
+      name: companyName.trim(),
+      emailDomain: normalizedDomain,
       industry: industry || '',
       services: services || [],
       isVerified: false,
@@ -83,7 +132,7 @@ router.post('/register-company-admin', validate(registerCompanyAdminSchema), asy
     // 3. Create User
     const user = await User.create({
       name: adminName,
-      email: adminEmail.toLowerCase(),
+      email: normalizedAdminEmail,
       passwordHash,
       role: 'COMPANY_ADMIN',
       company: company._id,
@@ -108,6 +157,53 @@ router.post('/register-company-admin', validate(registerCompanyAdminSchema), asy
   }
 });
 
+// POST /api/auth/register-super-admin
+router.post('/register-super-admin', validate(registerSuperAdminSchema), async (req, res) => {
+  try {
+    const { name, email, password, setupKey } = req.body;
+    const normalizedEmail = email.toLowerCase();
+
+    if (!process.env.SUPER_ADMIN_SETUP_KEY) {
+      return res.status(500).json({ message: 'SUPER_ADMIN_SETUP_KEY is not configured' });
+    }
+
+    if (setupKey !== process.env.SUPER_ADMIN_SETUP_KEY) {
+      return res.status(403).json({ message: 'Invalid setup key' });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail }).lean();
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    const company = await getOrCreatePlatformCompany();
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      role: 'SUPER_ADMIN',
+      company: company._id,
+      emailVerified: true,
+    });
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role, companyId: company._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      token,
+      user: getSafeUser(user, company),
+    });
+  } catch (err) {
+    console.error('Super admin register error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', validate(loginSchema), async (req, res) => {
   try {
@@ -122,6 +218,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user.isActive) return res.status(403).json({ message: 'Your account is blocked. Contact your Company Admin.' });
 
     const token = jwt.sign(
       { userId: user._id, role: user.role, companyId: user.company._id },
