@@ -5,6 +5,9 @@ import { useAuth } from '../../context/authContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const SOCKET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
 const useWebSocket = () => {
   const { state } = useAuth(); // Access user and token from state
   const socketRef = useRef(null);
@@ -17,7 +20,7 @@ const useWebSocket = () => {
       socketRef.current.disconnect();
     }
 
-    const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000', {
+    const socket = io(SOCKET_BASE_URL, {
       auth: { token: state.token },
       transports: ['websocket'],
       reconnection: true,
