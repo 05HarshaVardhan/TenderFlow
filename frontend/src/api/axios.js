@@ -2,7 +2,10 @@
 //frontend\src\api\axios.js
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const DEFAULT_API_BASE_URL = import.meta.env.PROD
+  ? 'https://tenderflow.onrender.com/api'
+  : 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

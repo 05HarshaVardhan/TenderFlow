@@ -6,7 +6,10 @@ const projectId = import.meta.env.VITE_LAUNCHDARKLY_OBSERVABILITY_PROJECT_ID;
 const environment = import.meta.env.VITE_LAUNCHDARKLY_OBSERVABILITY_ENVIRONMENT || import.meta.env.MODE;
 const serviceName = import.meta.env.VITE_LAUNCHDARKLY_OBSERVABILITY_SERVICE_NAME || 'tenderflow-frontend';
 const serviceVersion = import.meta.env.VITE_LAUNCHDARKLY_OBSERVABILITY_SERVICE_VERSION;
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const defaultApiBaseUrl = import.meta.env.PROD
+  ? 'https://tenderflow.onrender.com/api'
+  : 'http://localhost:5000/api';
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/api\/?$/, '');
 
 let initialized = false;
 let ldClient = null;
