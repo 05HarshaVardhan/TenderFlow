@@ -1,4 +1,4 @@
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/authContext';
 import { FileText, Activity, Users, CheckCircle2, Briefcase, Clock } from 'lucide-react';
 import IdentityHeader from './IdentityHeader';
 import StatCard from './StatCard';
