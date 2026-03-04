@@ -1,23 +1,58 @@
-//backend/src/utils/email.js
-const nodemailer = require('nodemailer');
+const MAILJET_SEND_URL = 'https://api.mailjet.com/v3.1/send';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+function getFromAddress() {
+  return process.env.EMAIL_FROM || process.env.GMAIL_SENDER || process.env.EMAIL_USER;
+}
 
 async function sendEmail({ to, subject, html }) {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    html,
-  };
+  if (typeof fetch !== 'function') {
+    throw new Error('Global fetch is unavailable in this Node runtime');
+  }
 
-  return transporter.sendMail(mailOptions);
+  const apiKey = process.env.MAILJET_API_KEY;
+  const apiSecret = process.env.MAILJET_API_SECRET;
+  const from = getFromAddress();
+  if (!apiKey) throw new Error('Missing MAILJET_API_KEY');
+  if (!apiSecret) throw new Error('Missing MAILJET_API_SECRET');
+  if (!from) throw new Error('Missing EMAIL_FROM/GMAIL_SENDER');
+  if (!to) throw new Error('Missing recipient email');
+
+  const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ Email: email }));
+  const basicAuth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
+
+  const response = await fetch(MAILJET_SEND_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basicAuth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      Messages: [
+        {
+          From: {
+            Email: from,
+            Name: process.env.EMAIL_FROM_NAME || 'TenderFlow'
+          },
+          To: recipients,
+          Subject: subject || '',
+          HTMLPart: html || ''
+        }
+      ]
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const details =
+      result?.ErrorInfo ||
+      result?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ||
+      result?.message ||
+      result?.error ||
+      `HTTP ${response.status}`;
+    throw new Error(`Mailjet send failed: ${details}`);
+  }
+
+  return result;
 }
 
 module.exports = { sendEmail };

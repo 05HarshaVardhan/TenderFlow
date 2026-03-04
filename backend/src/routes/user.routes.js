@@ -279,16 +279,17 @@ router.patch('/:id/block', auth, requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'), as
       return res.status(400).json({ message: 'User is already blocked.' });
     }
 
-    await sendUserLifecycleEmail({
+    user.isActive = false;
+    await user.save();
+    sendUserLifecycleEmail({
       to: user.email,
       companyName: user.company?.name || req.user.companyName,
       action: 'blocked'
+    }).catch((mailErr) => {
+      console.error('Block user email notify failed:', mailErr.message);
     });
 
-    user.isActive = false;
-    await user.save();
-
-    return res.json({ message: 'User blocked and notified by email.' });
+    return res.json({ message: 'User blocked. Email notification attempted.' });
   } catch (err) {
     console.error('Block user error:', err);
     return res.status(500).json({ message: 'Failed to block user' });
@@ -318,16 +319,17 @@ router.patch('/:id/unblock', auth, requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'), 
       return res.status(400).json({ message: 'User is already active.' });
     }
 
-    await sendUserLifecycleEmail({
+    user.isActive = true;
+    await user.save();
+    sendUserLifecycleEmail({
       to: user.email,
       companyName: user.company?.name || req.user.companyName,
       action: 'unblocked'
+    }).catch((mailErr) => {
+      console.error('Unblock user email notify failed:', mailErr.message);
     });
 
-    user.isActive = true;
-    await user.save();
-
-    return res.json({ message: 'User unblocked and notified by email.' });
+    return res.json({ message: 'User unblocked. Email notification attempted.' });
   } catch (err) {
     console.error('Unblock user error:', err);
     return res.status(500).json({ message: 'Failed to unblock user' });
@@ -364,14 +366,16 @@ router.delete('/:id', auth, requireRole('COMPANY_ADMIN', 'SUPER_ADMIN'), async (
       }
     }
 
-    await sendUserLifecycleEmail({
+    await User.deleteOne({ _id: user._id });
+    sendUserLifecycleEmail({
       to: user.email,
       companyName: user.company?.name || req.user.companyName,
       action: 'removed'
+    }).catch((mailErr) => {
+      console.error('Remove user email notify failed:', mailErr.message);
     });
 
-    await User.deleteOne({ _id: user._id });
-    return res.json({ message: 'User removed and notified by email.' });
+    return res.json({ message: 'User removed. Email notification attempted.' });
   } catch (err) {
     console.error('Remove user error:', err);
     return res.status(500).json({ message: 'Failed to remove user' });

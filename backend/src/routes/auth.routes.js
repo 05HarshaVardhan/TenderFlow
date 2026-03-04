@@ -242,9 +242,9 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 router.get('/test-email', async (req, res) => {
   try {
     await sendEmail({
-      to: process.env.EMAIL_USER,
+      to: process.env.EMAIL_TEST_TO || process.env.EMAIL_FROM || process.env.GMAIL_SENDER || process.env.EMAIL_USER,
       subject: 'Test Email',
-      html: '<h2>Nodemailer is working correctly 🚀</h2>',
+      html: '<h2>Email delivery is working correctly</h2>',
     });
 
     res.send('Email sent successfully');
@@ -257,3 +257,4 @@ router.get('/test-email', async (req, res) => {
 
 
 module.exports = router;
+
