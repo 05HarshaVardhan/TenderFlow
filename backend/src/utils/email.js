@@ -9,8 +9,12 @@ async function sendEmail({ to, subject, html }) {
     throw new Error('Global fetch is unavailable in this Node runtime');
   }
 
-  const apiKey = process.env.MAILJET_API_KEY;
-  const apiSecret = process.env.MAILJET_API_SECRET;
+  const apiKey =
+    process.env.MAILJET_API_KEY ||
+    process.env.MJ_APIKEY_PUBLIC;
+  const apiSecret =
+    process.env.MAILJET_API_SECRET ||
+    process.env.MJ_APIKEY_PRIVATE;
   const from = getFromAddress();
   if (!apiKey) throw new Error('Missing MAILJET_API_KEY');
   if (!apiSecret) throw new Error('Missing MAILJET_API_SECRET');
@@ -41,13 +45,21 @@ async function sendEmail({ to, subject, html }) {
     })
   });
 
-  const result = await response.json().catch(() => ({}));
+  const responseText = await response.text();
+  let result = {};
+  try {
+    result = responseText ? JSON.parse(responseText) : {};
+  } catch (_) {
+    result = {};
+  }
+
   if (!response.ok) {
     const details =
       result?.ErrorInfo ||
       result?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ||
       result?.message ||
       result?.error ||
+      responseText ||
       `HTTP ${response.status}`;
     throw new Error(`Mailjet send failed: ${details}`);
   }
