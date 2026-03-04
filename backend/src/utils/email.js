@@ -1,70 +1,57 @@
-const MAILJET_SEND_URL = 'https://api.mailjet.com/v3.1/send';
+const Mailjet = require('node-mailjet');
 
 function getFromAddress() {
   return process.env.EMAIL_FROM || process.env.GMAIL_SENDER || process.env.EMAIL_USER;
 }
 
 async function sendEmail({ to, subject, html }) {
-  if (typeof fetch !== 'function') {
-    throw new Error('Global fetch is unavailable in this Node runtime');
-  }
-
   const apiKey =
+    process.env.MJ_APIKEY_PUBLIC ||
     process.env.MAILJET_API_KEY ||
-    process.env.MJ_APIKEY_PUBLIC;
+    process.env.MAILJET_API_PUBLIC ||
+    process.env.MAILJET_PUBLIC_KEY;
   const apiSecret =
+    process.env.MJ_APIKEY_PRIVATE ||
     process.env.MAILJET_API_SECRET ||
-    process.env.MJ_APIKEY_PRIVATE;
+    process.env.MAILJET_API_PRIVATE ||
+    process.env.MAILJET_SECRET_KEY;
   const from = getFromAddress();
-  if (!apiKey) throw new Error('Missing MAILJET_API_KEY');
-  if (!apiSecret) throw new Error('Missing MAILJET_API_SECRET');
+
+  if (!apiKey) throw new Error('Missing MJ_APIKEY_PUBLIC/MAILJET_API_KEY');
+  if (!apiSecret) throw new Error('Missing MJ_APIKEY_PRIVATE/MAILJET_API_SECRET');
   if (!from) throw new Error('Missing EMAIL_FROM/GMAIL_SENDER');
   if (!to) throw new Error('Missing recipient email');
 
+  const mailjet = Mailjet.apiConnect(apiKey, apiSecret);
   const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ Email: email }));
-  const basicAuth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
 
-  const response = await fetch(MAILJET_SEND_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      Messages: [
-        {
-          From: {
-            Email: from,
-            Name: process.env.EMAIL_FROM_NAME || 'TenderFlow'
-          },
-          To: recipients,
-          Subject: subject || '',
-          HTMLPart: html || ''
-        }
-      ]
-    })
-  });
+  const requestBody = {
+    Messages: [
+      {
+        From: {
+          Email: from,
+          Name: process.env.EMAIL_FROM_NAME || 'TenderFlow'
+        },
+        To: recipients,
+        Subject: subject || '',
+        TextPart: 'Please view this email in an HTML-compatible client.',
+        HTMLPart: html || ''
+      }
+    ]
+  };
 
-  const responseText = await response.text();
-  let result = {};
   try {
-    result = responseText ? JSON.parse(responseText) : {};
-  } catch (_) {
-    result = {};
-  }
-
-  if (!response.ok) {
+    const result = await mailjet.post('send', { version: 'v3.1' }).request(requestBody);
+    return result?.body || result;
+  } catch (err) {
     const details =
-      result?.ErrorInfo ||
-      result?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ||
-      result?.message ||
-      result?.error ||
-      responseText ||
-      `HTTP ${response.status}`;
+      err?.response?.body?.ErrorInfo ||
+      err?.response?.body?.Messages?.[0]?.Errors?.[0]?.ErrorMessage ||
+      err?.response?.body?.message ||
+      err?.message ||
+      `HTTP ${err?.statusCode || 500}`;
     throw new Error(`Mailjet send failed: ${details}`);
   }
-
-  return result;
 }
 
 module.exports = { sendEmail };
