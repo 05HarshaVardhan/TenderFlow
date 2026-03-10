@@ -120,7 +120,13 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error('Startup error:', error);
+  captureException(error instanceof Error ? error : new Error(String(error)), {
+    source: 'server.startup'
+  });
+  process.exit(1);
+});
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled rejection:', reason);
