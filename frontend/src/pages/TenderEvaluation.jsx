@@ -112,8 +112,9 @@ export default function TenderEvaluation() {
   const handleAward = async (bidId) => {
     setAwarding(true);
     try {
-      // Calling the bid-specific award route we created in the backend
-      await api.patch(`/bids/${bidId}/award`, {
+      // Award only after tender is closed
+      await api.patch(`/tenders/${id}/award`, {
+        winningBidId: bidId,
         awardJustification: awardJustification.trim(),
       });
       toast.success("Tender awarded successfully!");
