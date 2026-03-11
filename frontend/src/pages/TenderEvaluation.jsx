@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '@/api/axios';
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { usePresence } from "@/hooks/usePresence";
 
 export default function TenderEvaluation() {
   const { id } = useParams();
@@ -29,6 +30,18 @@ export default function TenderEvaluation() {
     policyCompliance: false,
     budgetExceptionApproved: false,
   });
+  const awardModalRef = useRef(null);
+  const awardModalOpen = Boolean(awardModal.open && awardModal.bid);
+  const { isMounted: isAwardMounted, isVisible: isAwardVisible } = usePresence(awardModalOpen, 200);
+  const awardOverlayAnimation = isAwardVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const awardPanelAnimation = isAwardVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
+
+  if (awardModalOpen) {
+    awardModalRef.current = awardModal;
+  }
+  const activeAwardModal = awardModalOpen ? awardModal : awardModalRef.current;
 
   useEffect(() => {
     fetchTenderAndBids();
@@ -144,7 +157,7 @@ export default function TenderEvaluation() {
   if (loading) return <div className="p-8 text-white text-center">Loading Bids...</div>;
   if (!tender) return <div className="p-8 text-white text-center">Tender not found.</div>;
 
-  const selectedBid = awardModal.bid;
+  const selectedBid = activeAwardModal?.bid;
   const analytics = getTenderAnalytics();
   const selectedDocs = getBidDocsCompleteness(selectedBid);
   const selectedRisk = getRiskSummary(selectedBid);
@@ -284,9 +297,9 @@ export default function TenderEvaluation() {
         )}
       </div>
 
-      {awardModal.open && selectedBid && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-4xl rounded-xl border border-zinc-800 bg-zinc-950">
+      {isAwardMounted && selectedBid && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 ${awardOverlayAnimation}`}>
+          <div className={`w-full max-w-4xl rounded-xl border border-zinc-800 bg-zinc-950 ${awardPanelAnimation}`}>
             <div className="flex items-center justify-between border-b border-zinc-800 p-4">
               <div>
                 <p className="text-xs uppercase tracking-wider text-zinc-500">Pre-Award Validation</p>

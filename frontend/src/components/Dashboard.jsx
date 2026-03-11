@@ -104,7 +104,7 @@ export default function Dashboard() {
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
   const profileImageInputRef = useRef(null);
 
-  const { tenders, bids, team, loading, refreshData } = useDashboardStats(user?.role);
+  const { tenders, bids, team, loading, refreshData, setTenders } = useDashboardStats(user?.role);
 
   const openProfileImagePicker = () => {
     profileImageInputRef.current?.click();
@@ -157,6 +157,12 @@ export default function Dashboard() {
     try {
       await api.patch(`/tenders/${id}/${action}`);
       toast.success(`Tender ${action}ed successfully`);
+      if (action === 'close') {
+        setTenders((prev) => prev.map((t) => (t._id === id ? { ...t, status: 'CLOSED' } : t)));
+      }
+      if (action === 'publish') {
+        setTenders((prev) => prev.map((t) => (t._id === id ? { ...t, status: 'PUBLISHED' } : t)));
+      }
       refreshData(); 
     } catch (err) {
       toast.error(err.response?.data?.message || "Action failed");
@@ -185,7 +191,7 @@ export default function Dashboard() {
     navigate('/browse-tenders');
   };
 
-  if (loading) return (
+  if (loading && tenders.length === 0 && bids.length === 0) return (
     <div className="p-8 text-white flex items-center justify-center min-h-screen">
       <div className="animate-pulse text-zinc-500">Loading live data...</div>
     </div>
@@ -273,7 +279,18 @@ export default function Dashboard() {
       <CreateTenderModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onSuccess={refreshData}
+        onSuccess={(savedTender) => {
+          if (savedTender?._id) {
+            setTenders((prev) => {
+              const existingIndex = prev.findIndex((t) => t._id === savedTender._id);
+              if (existingIndex === -1) return [savedTender, ...prev];
+              const updated = [...prev];
+              updated[existingIndex] = { ...updated[existingIndex], ...savedTender };
+              return updated;
+            });
+          }
+          refreshData();
+        }}
       />
     </div>
   );

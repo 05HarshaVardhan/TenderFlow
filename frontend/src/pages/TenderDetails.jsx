@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '@/api/axios';
 import { useAuth } from '@/context/authContext';
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { saveAs } from 'file-saver';
+import { usePresence } from "@/hooks/usePresence";
 
 export default function TenderDetails() {
   const { state } = useAuth();
@@ -27,6 +28,20 @@ export default function TenderDetails() {
   const [selectedBid, setSelectedBid] = useState(null);
   const [viewingFiles, setViewingFiles] = useState(null); // 'technical' or 'financial'
   const [downloadingFile, setDownloadingFile] = useState(null);
+  const fileViewerRef = useRef({ bid: null, type: null });
+  const fileViewerOpen = Boolean(selectedBid && viewingFiles);
+  const { isMounted: isFileViewerMounted, isVisible: isFileViewerVisible } = usePresence(fileViewerOpen, 200);
+  const fileViewerOverlayAnimation = isFileViewerVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const fileViewerPanelAnimation = isFileViewerVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
+
+  if (fileViewerOpen) {
+    fileViewerRef.current = { bid: selectedBid, type: viewingFiles };
+  }
+
+  const activeBid = selectedBid || fileViewerRef.current.bid;
+  const activeViewingFiles = viewingFiles || fileViewerRef.current.type;
 
   const canAnalyzeBids = ['COMPANY_ADMIN', 'TENDER_POSTER', 'SUPER_ADMIN'].includes(user?.role);
 
@@ -508,12 +523,12 @@ export default function TenderDetails() {
       </div>
 
       {/* File Viewer Modal */}
-      {selectedBid && viewingFiles && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+      {isFileViewerMounted && activeBid && activeViewingFiles && (
+        <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${fileViewerOverlayAnimation}`}>
+          <div className={`bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col ${fileViewerPanelAnimation}`}>
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
               <h3 className="text-lg font-semibold">
-                {viewingFiles === 'technical' ? 'Technical' : 'Financial'} Documents - {selectedBid.bidderCompany?.name || 'Bidder'}
+                {activeViewingFiles === 'technical' ? 'Technical' : 'Financial'} Documents - {activeBid.bidderCompany?.name || 'Bidder'}
               </h3>
               <button 
                 onClick={() => {
@@ -527,9 +542,9 @@ export default function TenderDetails() {
             </div>
             
             <div className="p-4 overflow-y-auto flex-1">
-              {selectedBid[`${viewingFiles}Docs`]?.length > 0 ? (
+              {activeBid[`${activeViewingFiles}Docs`]?.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedBid[`${viewingFiles}Docs`].map((doc, idx) => (
+                  {activeBid[`${activeViewingFiles}Docs`].map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
                       <div className="flex items-center gap-3">
                         <FileIcon className="h-5 w-5 text-blue-400" />

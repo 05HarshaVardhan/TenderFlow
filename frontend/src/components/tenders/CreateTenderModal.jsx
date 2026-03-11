@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import api from '@/api/axios';
 import { toast } from "react-hot-toast";
+import { usePresence } from "@/hooks/usePresence";
 
 const DEFAULT_CATEGORIES = [
   'IT Services',
@@ -284,8 +285,11 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
         }
         
         console.log('Server response:', response.data);
+        const savedTender = response?.data || null;
         onClose();
-        onSuccess();
+        if (onSuccess) {
+          onSuccess(savedTender);
+        }
     } catch (err) {
         console.error('Error saving tender:', err);
         console.error('Error response:', err.response?.data);
@@ -297,7 +301,13 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
     }
 };
 
-  if (!isOpen) return null;
+  const { isMounted, isVisible } = usePresence(isOpen, 200);
+  const overlayAnimation = isVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const panelAnimation = isVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
+
+  if (!isMounted) return null;
 
   // --- HELPER COMPONENT FOR LABELS ---
   const FieldLabel = ({ label, name }) => (
@@ -313,8 +323,8 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 text-left">
-      <div className="bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 text-left ${overlayAnimation}`}>
+      <div className={`bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${panelAnimation}`}>
 
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50 flex-shrink-0">

@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardStats } from '@/hooks/useDashboard';
 import { useAuth } from '@/context/authContext';
 import api from '@/api/axios';
 import { toast } from "react-hot-toast";
+import { usePresence } from "@/hooks/usePresence";
 import {
   Gavel, Clock, CheckCircle2, XCircle,
   FileText, DollarSign, Edit3,
@@ -37,7 +38,7 @@ export default function ManageTenders() {
   const [statusFilter, setStatusFilter] = useState("All");
   // Passing filters to the hook. 
   // Ensure your useDashboardStats hook passes these as query params to /my-company
-  const { tenders, loading, refreshData } = useDashboardStats(state.user?.role, { search, category, sortBy, statusFilter });
+  const { tenders, loading, refreshData, setTenders } = useDashboardStats(state.user?.role, { search, category, sortBy, statusFilter });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTender, setSelectedTender] = useState(null);
@@ -50,6 +51,19 @@ export default function ManageTenders() {
     description: '',
   });
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const publishConfirmRef = useRef(null);
+  const publishConfirmOpen = Boolean(publishConfirmData);
+  const { isMounted: isPublishMounted, isVisible: isPublishVisible } = usePresence(publishConfirmOpen, 200);
+
+  if (publishConfirmData) {
+    publishConfirmRef.current = publishConfirmData;
+  }
+
+  const activePublishConfirm = publishConfirmData || publishConfirmRef.current;
+  const publishOverlayAnimation = isPublishVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const publishPanelAnimation = isPublishVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
 
   const isFiltered = search !== "" || category !== "All" || sortBy !== "newest";
   const categoryOptions = useMemo(() => {
@@ -82,11 +96,36 @@ export default function ManageTenders() {
     setIsModalOpen(true);
   };
 
+  const upsertTender = (nextTender) => {
+    if (!nextTender?._id) return;
+    setTenders((prev) => {
+      const existingIndex = prev.findIndex((t) => t._id === nextTender._id);
+      if (existingIndex === -1) return [nextTender, ...prev];
+      const updated = [...prev];
+      const existing = updated[existingIndex];
+      updated[existingIndex] = { ...existing, ...nextTender };
+      return updated;
+    });
+  };
+
+  const removeTender = (id) => {
+    setTenders((prev) => prev.filter((t) => t._id !== id));
+  };
+
+  const updateTenderStatus = (id, status, patch = {}) => {
+    setTenders((prev) =>
+      prev.map((t) => (t._id === id ? { ...t, status, ...patch } : t))
+    );
+  };
+
   const executeAction = async (id, action) => {
     if (action === 'delete') {
       await api.delete(`/tenders/${id}`);
+      removeTender(id);
     } else {
       await api.patch(`/tenders/${id}/${action}`);
+      if (action === 'close') updateTenderStatus(id, 'CLOSED');
+      if (action === 'publish') updateTenderStatus(id, 'PUBLISHED');
     }
 
     toast.success(`Tender ${action}ed successfully`);
@@ -148,11 +187,17 @@ export default function ManageTenders() {
 
   const confirmPublish = async () => {
     if (!publishConfirmData) return;
+    const confirmed = publishConfirmData;
     try {
-      await api.patch(`/tenders/${publishConfirmData._id}/publish`, {
-        documents: publishConfirmData.documents
+      await api.patch(`/tenders/${confirmed._id}/publish`, {
+        documents: confirmed.documents
       });
       toast.success("Tender is now LIVE!");
+      upsertTender({
+        ...confirmed,
+        status: 'PUBLISHED',
+        documents: confirmed.documents
+      });
       setPublishConfirmData(null);
       refreshData();
     } catch (err) {
@@ -401,9 +446,9 @@ export default function ManageTenders() {
       </div>
 
       {/* --- PUBLISH CONFIRMATION OVERLAY --- */}
-      {publishConfirmData && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-zinc-950 border border-emerald-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+      {isPublishMounted && activePublishConfirm && (
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 ${publishOverlayAnimation}`}>
+          <div className={`bg-zinc-950 border border-emerald-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${publishPanelAnimation}`}>
             <div className="p-6 text-center space-y-4">
               <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-500/20">
                 <ShieldCheck className="w-8 h-8 text-emerald-500" />
@@ -417,19 +462,19 @@ export default function ManageTenders() {
               <div className="bg-zinc-900/50 rounded-xl p-3 border border-zinc-800 space-y-2 text-left">
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-[10px] uppercase font-bold">Category:</span>
-                  <span className="text-zinc-300 text-xs font-bold">{publishConfirmData.category}</span>
+                  <span className="text-zinc-300 text-xs font-bold">{activePublishConfirm.category}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-[10px] uppercase font-bold">Est. Value:</span>
-                  <span className="text-emerald-400 text-xs font-bold">${Number(publishConfirmData.estimatedValue || 0).toLocaleString()}</span>
+                  <span className="text-emerald-400 text-xs font-bold">${Number(activePublishConfirm.estimatedValue || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-[10px] uppercase font-bold">EMD Amount:</span>
-                  <span className="text-white text-xs font-bold">${Number(publishConfirmData.emdAmount || 0).toLocaleString()}</span>
+                  <span className="text-white text-xs font-bold">${Number(activePublishConfirm.emdAmount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-[10px] uppercase font-bold">Deadline:</span>
-                  <span className="text-white text-xs font-bold">{new Date(publishConfirmData.endDate).toLocaleDateString()}</span>
+                  <span className="text-white text-xs font-bold">{new Date(activePublishConfirm.endDate).toLocaleDateString()}</span>
                 </div>
               </div>
 
@@ -437,12 +482,12 @@ export default function ManageTenders() {
                 <div className="flex justify-between items-center px-1">
                   <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest">Attached Files</p>
                   <Badge variant="outline" className="text-[9px] h-4 border-zinc-800 text-zinc-400">
-                    {publishConfirmData.documents?.length || 0} Files
+                    {activePublishConfirm.documents?.length || 0} Files
                   </Badge>
                 </div>
 
                 <div className="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                  {publishConfirmData.documents?.map((doc, idx) => (
+                  {activePublishConfirm.documents?.map((doc, idx) => (
                     <div
                       key={idx}
                       className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800 group hover:border-zinc-700 transition-all"
@@ -475,7 +520,7 @@ export default function ManageTenders() {
                     </div>
                   ))}
 
-                  {(!publishConfirmData.documents || publishConfirmData.documents.length === 0) && (
+                  {(!activePublishConfirm.documents || activePublishConfirm.documents.length === 0) && (
                     <div className="text-center py-6 border border-dashed border-zinc-800 rounded-lg">
                       <p className="text-xs text-zinc-600">No documents attached.</p>
                     </div>
@@ -486,7 +531,7 @@ export default function ManageTenders() {
               <div className="flex flex-col gap-2 pt-4 border-t border-zinc-800">
                 <Button
                   onClick={confirmPublish}
-                  disabled={publishConfirmData.documents?.length === 0}
+                  disabled={activePublishConfirm.documents?.length === 0}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white w-full h-11 font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Confirm & Go Live
@@ -511,8 +556,12 @@ export default function ManageTenders() {
           setSelectedTender(null);
         }}
         editData={selectedTender}
-        onSuccess={() => {
+        onSuccess={(savedTender) => {
           setIsModalOpen(false);
+          setSelectedTender(null);
+          if (savedTender?._id) {
+            upsertTender(savedTender);
+          }
           refreshData();
         }}
       />

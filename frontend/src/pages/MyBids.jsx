@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '@/api/axios';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import BidSubmissionModal from '@/components/tenders/BidSubmissionModal';
+import { usePresence } from "@/hooks/usePresence";
 
 const BidRelationshipSummary = ({ bid, tender }) => {
    console.log('Bid data:', bid);
@@ -142,11 +143,17 @@ const BidRelationshipSummary = ({ bid, tender }) => {
 };
 
 const WithdrawConfirmationModal = ({ isOpen, onClose, onConfirm, bidId, isWithdrawing }) => {
-  if (!isOpen) return null;
+  const { isMounted, isVisible } = usePresence(isOpen, 200);
+  const overlayAnimation = isVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const panelAnimation = isVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
+
+  if (!isMounted) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-      <div className="bg-zinc-950 border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4 ${overlayAnimation}`}>
+      <div className={`bg-zinc-950 border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden ${panelAnimation}`}>
         <div className="p-8">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4 border border-red-500/20">
@@ -209,6 +216,15 @@ export default function MyBids() {
   const [submitReview, setSubmitReview] = useState(null);
   const [submitReviewLoading, setSubmitReviewLoading] = useState(false);
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const submitConfirmRef = useRef(null);
+  const submitConfirmOpen = Boolean(submitConfirmData);
+  const { isMounted: isSubmitMounted, isVisible: isSubmitVisible } = usePresence(submitConfirmOpen, 200);
+  const submitOverlayAnimation = isSubmitVisible ? "animate-in fade-in duration-200" : "animate-out fade-out duration-200";
+  const submitPanelAnimation = isSubmitVisible
+    ? "animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 ease-out"
+    : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
+  if (submitConfirmData) submitConfirmRef.current = submitConfirmData;
+  const activeSubmitConfirm = submitConfirmData || submitConfirmRef.current;
 
   // --- FILTER STATES (Synced with Tender Logic) ---
   const [search, setSearch] = useState("");
@@ -238,6 +254,22 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  const upsertBid = (nextBid) => {
+    if (!nextBid?._id) return;
+    setBids((prev) => {
+      const existingIndex = prev.findIndex((b) => b._id === nextBid._id);
+      if (existingIndex === -1) return [nextBid, ...prev];
+      const updated = [...prev];
+      const existing = updated[existingIndex];
+      updated[existingIndex] = { ...existing, ...nextBid, tender: nextBid.tender || existing.tender };
+      return updated;
+    });
+  };
+
+  const updateBidStatus = (id, status) => {
+    setBids((prev) => prev.map((b) => (b._id === id ? { ...b, status } : b)));
   };
 
   const clearFilters = () => {
@@ -281,6 +313,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
       setIsSubmittingBid(true);
       await api.patch(`/bids/${submitConfirmData._id}/submit`);
       toast.success("Bid submitted successfully!");
+      updateBidStatus(submitConfirmData._id, 'SUBMITTED');
       setSubmitConfirmData(null);
       setSubmitReview(null);
       fetchMyBids(); 
@@ -301,6 +334,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
       setIsWithdrawingId(bidId);
       await api.patch(`/bids/${bidId}/withdraw`);
       toast.success("Bid withdrawn and eligibility revoked.");
+      updateBidStatus(bidId, 'WITHDRAWN');
       
       // Close modal and refresh data
       setWithdrawModal({ isOpen: false, bidId: null });
@@ -382,7 +416,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
 
       {/* Bid Grid */}
       <div className="grid gap-6">
-        {loading ? (
+        {loading && bids.length === 0 ? (
             <div className="text-center py-24"><Clock className="animate-spin mx-auto h-8 w-8 text-zinc-500" /></div>
         ) : (
           bids.map((bid) => {
@@ -468,9 +502,9 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
       </div>
 
       {/* --- SUBMISSION AUDIT OVERLAY (Mirroring Tender Audit) --- */}
-      {submitConfirmData && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-zinc-950 border border-blue-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+      {isSubmitMounted && activeSubmitConfirm && (
+        <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 ${submitOverlayAnimation}`}>
+          <div className={`bg-zinc-950 border border-blue-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${submitPanelAnimation}`}>
             <div className="p-6 text-center space-y-4">
               <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto border border-blue-500/20">
                 <ShieldCheck className="w-8 h-8 text-blue-500" />
@@ -484,18 +518,18 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
               <div className="bg-zinc-900 rounded-xl p-4 text-left space-y-2 border border-zinc-800">
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-xs font-bold uppercase">Quote:</span>
-                  <span className="text-emerald-400 font-black">${submitConfirmData.amount?.toLocaleString()}</span>
+                  <span className="text-emerald-400 font-black">${activeSubmitConfirm.amount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500 text-xs font-bold uppercase">Timeline:</span>
-                  <span className="text-white font-bold">{submitConfirmData.deliveryDays} Days</span>
+                  <span className="text-white font-bold">{activeSubmitConfirm.deliveryDays} Days</span>
                 </div>
               </div>
 
               <div className="text-left space-y-2">
                 <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest px-1">Envelopes Attached</p>
                 <div className="max-h-32 overflow-y-auto space-y-2">
-                  {[...(submitConfirmData.technicalDocs || []), ...(submitConfirmData.financialDocs || [])].map((doc, idx) => (
+                  {[...(activeSubmitConfirm.technicalDocs || []), ...(activeSubmitConfirm.financialDocs || [])].map((doc, idx) => (
                     <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
                       <FileIcon className="w-4 h-4 text-zinc-500" />
                       <span className="text-xs text-zinc-300 truncate">{doc.name || `Attachment ${idx+1}`}</span>
@@ -603,6 +637,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
     isViewOnly={isViewOnly}
     tender={selectedBid.tender}
     onRefresh={fetchMyBids}
+    onOptimistic={upsertBid}
     // PASS THE NEW SUMMARY COMPONENT AS A PROP IF THE MODAL SUPPORTS CUSTOM CHILDREN
     // OR UPDATE BidSubmissionModal.jsx TO USE THE LOGIC ABOVE
     headerContent={isViewOnly && (

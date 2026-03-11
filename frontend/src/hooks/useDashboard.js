@@ -69,7 +69,6 @@ export const useDashboardStats = (role, filters = {}) => {
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
-      setTenders([]); 
     } finally {
       setLoading(false);
     }
@@ -80,5 +79,5 @@ export const useDashboardStats = (role, filters = {}) => {
     fetchData();
   }, [fetchData]);
 
-  return { tenders, bids, team, loading, refreshData: fetchData };
+  return { tenders, bids, team, loading, refreshData: fetchData, setTenders };
 };

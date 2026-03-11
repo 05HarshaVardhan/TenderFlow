@@ -64,7 +64,7 @@ export default function BrowseTenders() {
     );
   };
 
-  if (loading) {
+  if (loading && tenders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>

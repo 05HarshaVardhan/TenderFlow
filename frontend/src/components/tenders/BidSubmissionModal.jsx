@@ -21,7 +21,7 @@ const STEPS = [
   { id: 4, title: 'Final Review', icon: FileCheck },
 ];
 
-export default function BidSubmissionModal({ isOpen, onClose, tender, existingBid, isViewOnly, onRefresh }) {
+export default function BidSubmissionModal({ isOpen, onClose, tender, existingBid, isViewOnly, onRefresh, onOptimistic }) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -154,9 +154,15 @@ export default function BidSubmissionModal({ isOpen, onClose, tender, existingBi
       if (isFinalSubmit) {
         await api.patch(`/bids/${updatedBid._id}/submit`);
         toast.success("Bid Submitted Successfully!");
+        if (onOptimistic) {
+          onOptimistic({ ...updatedBid, status: 'SUBMITTED' });
+        }
         onClose();
       } else {
         toast.success("Draft Saved!");
+        if (onOptimistic) {
+          onOptimistic(updatedBid);
+        }
       }
       console.log('techDocs:', techDocs);
 console.log('finDocs:', finDocs);
