@@ -9,7 +9,7 @@ import {
   Trophy, User, Clock, DollarSign, 
   FileText, Download, ShieldCheck, ExternalLink, 
   Users, CheckCircle2, X, FileIcon, ExternalLink as ExternalLinkIcon,
-  FileDown, Calendar, CalendarDays, Tag, Hash, Sparkles
+  FileDown, Calendar, CalendarDays, Tag, Hash, Sparkles, Loader2
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { saveAs } from 'file-saver';
@@ -123,11 +123,11 @@ export default function TenderDetails() {
     }
   };
 
-  if (loading) return <div className="p-8 text-white text-center">Loading secure data...</div>;
-  if (!tender) return <div className="p-8 text-white text-center">Tender not found.</div>;
+  if (loading) return <div className="p-8 text-foreground text-center">Loading secure data...</div>;
+  if (!tender) return <div className="p-8 text-foreground text-center">Tender not found.</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 text-white pb-12">
+    <div className="max-w-5xl mx-auto space-y-6 text-foreground pb-12">
       {/* 1. Tender Header & Specifications */}
       <div className="bg-zinc-950 p-8 rounded-xl border border-zinc-800 shadow-xl">
         <div className="flex justify-between items-start mb-6">
@@ -266,7 +266,14 @@ export default function TenderDetails() {
               disabled={analyzing}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
             >
-              {analyzing ? "Analyzing..." : "Analyze Bids"}
+              {analyzing ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing...
+                </span>
+              ) : (
+                "Analyze Bids"
+              )}
             </Button>
           </div>
 
@@ -525,8 +532,8 @@ export default function TenderDetails() {
       {/* File Viewer Modal */}
       {isFileViewerMounted && activeBid && activeViewingFiles && (
         <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${fileViewerOverlayAnimation}`}>
-          <div className={`bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col ${fileViewerPanelAnimation}`}>
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+          <div className={`bg-card border border-border rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col ${fileViewerPanelAnimation}`}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
               <h3 className="text-lg font-semibold">
                 {activeViewingFiles === 'technical' ? 'Technical' : 'Financial'} Documents - {activeBid.bidderCompany?.name || 'Bidder'}
               </h3>
@@ -535,7 +542,7 @@ export default function TenderDetails() {
                   setSelectedBid(null);
                   setViewingFiles(null);
                 }}
-                className="text-zinc-400 hover:text-white p-1"
+                className="text-muted-foreground hover:text-foreground p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -545,7 +552,7 @@ export default function TenderDetails() {
               {activeBid[`${activeViewingFiles}Docs`]?.length > 0 ? (
                 <div className="space-y-3">
                   {activeBid[`${activeViewingFiles}Docs`].map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
                       <div className="flex items-center gap-3">
                         <FileIcon className="h-5 w-5 text-blue-400" />
                         <span className="text-sm font-medium">
@@ -571,20 +578,20 @@ export default function TenderDetails() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-zinc-500">
-                  No {viewingFiles} documents found for this bid.
+                <div className="text-center py-8 text-muted-foreground">
+                  No {activeViewingFiles} documents found for this bid.
                 </div>
               )}
             </div>
             
-            <div className="p-4 border-t border-zinc-800 flex justify-end">
+            <div className="p-4 border-t border-border flex justify-end">
               <Button 
                 variant="outline" 
                 onClick={() => {
                   setSelectedBid(null);
                   setViewingFiles(null);
                 }}
-                className="border-zinc-700 hover:bg-zinc-800"
+                className="border-border hover:bg-muted"
               >
                 Close
               </Button>

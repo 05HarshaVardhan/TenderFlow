@@ -8,8 +8,8 @@ export default function ProtectedRoute({ children }) {
   // 1. If we have a token but no user yet, we are likely re-fetching 'me'
   if (state.token && !state.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-white animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-foreground animate-spin" />
       </div>
     )
   }

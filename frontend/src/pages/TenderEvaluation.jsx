@@ -154,8 +154,8 @@ export default function TenderEvaluation() {
     setRejectConfirm({ open: true, bidId });
   };
 
-  if (loading) return <div className="p-8 text-white text-center">Loading Bids...</div>;
-  if (!tender) return <div className="p-8 text-white text-center">Tender not found.</div>;
+  if (loading) return <div className="p-8 text-foreground text-center">Loading Bids...</div>;
+  if (!tender) return <div className="p-8 text-foreground text-center">Tender not found.</div>;
 
   const selectedBid = activeAwardModal?.bid;
   const analytics = getTenderAnalytics();
@@ -177,7 +177,7 @@ export default function TenderEvaluation() {
   const canSubmitAward = canProceedToStep2 && justificationValid && requiredChecksDone;
 
   return (
-    <div className="p-6 space-y-6 text-white max-w-6xl mx-auto">
+    <div className="p-6 space-y-6 text-foreground max-w-6xl mx-auto">
       <Button variant="ghost" onClick={() => navigate(-1)} className="text-zinc-400 hover:text-white mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Management
       </Button>
@@ -299,17 +299,17 @@ export default function TenderEvaluation() {
 
       {isAwardMounted && selectedBid && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 ${awardOverlayAnimation}`}>
-          <div className={`w-full max-w-4xl rounded-xl border border-zinc-800 bg-zinc-950 ${awardPanelAnimation}`}>
-            <div className="flex items-center justify-between border-b border-zinc-800 p-4">
+          <div className={`w-full max-w-4xl rounded-xl border border-border bg-card ${awardPanelAnimation}`}>
+            <div className="flex items-center justify-between border-b border-border p-4">
               <div>
-                <p className="text-xs uppercase tracking-wider text-zinc-500">Pre-Award Validation</p>
-                <h3 className="text-xl font-bold">Award Review - {selectedBid.bidderCompany?.name || 'Bidder'}</h3>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Pre-Award Validation</p>
+                <h3 className="text-xl font-bold text-foreground">Award Review - {selectedBid.bidderCompany?.name || 'Bidder'}</h3>
               </div>
-              <button className="text-zinc-400 hover:text-white" onClick={closeAwardModal}>Close</button>
+              <button className="text-muted-foreground hover:text-foreground" onClick={closeAwardModal}>Close</button>
             </div>
 
             <div className="p-5">
-              <div className="mb-5 flex items-center gap-2 text-xs text-zinc-400">
+              <div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground">
                 <span className={awardStep >= 1 ? 'text-blue-400' : ''}>1. Validation</span>
                 <span>{'->'}</span>
                 <span className={awardStep >= 2 ? 'text-blue-400' : ''}>2. Analytics</span>
@@ -320,24 +320,24 @@ export default function TenderEvaluation() {
               {awardStep === 1 && (
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                      <p className="text-xs uppercase text-zinc-500">Financial verification</p>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <p className="text-xs uppercase text-muted-foreground">Financial verification</p>
                       <p className="mt-2 text-sm">Bid Amount: <span className="font-bold text-emerald-400">${selectedAmount.toLocaleString()}</span></p>
                       <p className="text-sm">Budget: <span className="font-bold">${estimatedValue.toLocaleString()}</span></p>
                       <p className={`text-xs mt-2 ${overBudget ? 'text-amber-400' : 'text-emerald-400'}`}>
                         {estimatedValue > 0 ? `${priceVsBudgetPct.toFixed(2)}% vs budget` : 'Budget data unavailable'}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                      <p className="text-xs uppercase text-zinc-500">Document completeness</p>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <p className="text-xs uppercase text-muted-foreground">Document completeness</p>
                       <p className="mt-2 text-sm">Technical Docs: <span className="font-bold">{selectedDocs.technicalCount}</span></p>
                       <p className="text-sm">Financial Docs: <span className="font-bold">{selectedDocs.financialCount}</span></p>
                       <p className="text-sm">EMD Proof: <span className={`font-bold ${selectedDocs.hasEmd ? 'text-emerald-400' : 'text-red-400'}`}>{selectedDocs.hasEmd ? 'Present' : 'Missing'}</span></p>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                    <p className="text-xs uppercase text-zinc-500">Validation checklist</p>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase text-muted-foreground">Validation checklist</p>
                     <ul className="mt-2 space-y-2 text-sm">
                       <li className={selectedDocs.technicalCount > 0 ? 'text-emerald-400' : 'text-red-400'}>Technical envelope attached</li>
                       <li className={selectedDocs.financialCount > 0 ? 'text-emerald-400' : 'text-red-400'}>Financial envelope attached</li>
@@ -351,28 +351,28 @@ export default function TenderEvaluation() {
               {awardStep === 2 && (
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                      <div className="flex items-center gap-2 text-zinc-400"><BarChart3 className="h-4 w-4" />Market Avg</div>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <div className="flex items-center gap-2 text-muted-foreground"><BarChart3 className="h-4 w-4" />Market Avg</div>
                       <p className="mt-2 text-lg font-bold">${analytics.avgAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                      <div className="flex items-center gap-2 text-zinc-400"><TrendingUp className="h-4 w-4" />Range</div>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <div className="flex items-center gap-2 text-muted-foreground"><TrendingUp className="h-4 w-4" />Range</div>
                       <p className="mt-2 text-lg font-bold">${analytics.minAmount.toLocaleString()} - ${analytics.maxAmount.toLocaleString()}</p>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                      <div className="flex items-center gap-2 text-zinc-400"><ShieldCheck className="h-4 w-4" />Risk</div>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4">
+                      <div className="flex items-center gap-2 text-muted-foreground"><ShieldCheck className="h-4 w-4" />Risk</div>
                       <p className={`mt-2 text-lg font-bold ${selectedRisk.level === 'HIGH' ? 'text-red-400' : selectedRisk.level === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'}`}>
                         {selectedRisk.level}
                       </p>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                    <p className="text-xs uppercase text-zinc-500 mb-2">Bid comparison matrix</p>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase text-muted-foreground mb-2">Bid comparison matrix</p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-zinc-500">
+                          <tr className="text-muted-foreground">
                             <th className="py-2 text-left">Bidder</th>
                             <th className="py-2 text-left">Amount</th>
                             <th className="py-2 text-left">Delivery</th>
@@ -399,36 +399,36 @@ export default function TenderEvaluation() {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                    <p className="text-xs uppercase text-zinc-500 mb-2">Risk assessment summary</p>
-                    <ul className="space-y-2 text-sm text-zinc-300">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase text-muted-foreground mb-2">Risk assessment summary</p>
+                    <ul className="space-y-2 text-sm text-foreground">
                       {selectedRisk.notes.map((note) => (
                         <li key={note}>- {note}</li>
                       ))}
                     </ul>
-                    <p className="mt-3 text-xs text-zinc-500">Historical bidder performance: Not available in current dataset.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Historical bidder performance: Not available in current dataset.</p>
                   </div>
                 </div>
               )}
 
               {awardStep === 3 && (
                 <div className="space-y-4">
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                    <p className="text-xs uppercase text-zinc-500">Award justification (required)</p>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase text-muted-foreground">Award justification (required)</p>
                     <textarea
-                      className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 p-3 text-sm outline-none focus:border-blue-500"
+                      className="mt-2 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground outline-none focus:border-blue-500"
                       rows={4}
                       placeholder="Document why this bidder is being awarded (minimum 20 characters)."
                       value={awardJustification}
                       onChange={(e) => setAwardJustification(e.target.value)}
                     />
-                    <p className={`mt-1 text-xs ${justificationValid ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                    <p className={`mt-1 text-xs ${justificationValid ? 'text-emerald-400' : 'text-muted-foreground'}`}>
                       {awardJustification.trim().length}/20 minimum characters
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-                    <p className="text-xs uppercase text-zinc-500 mb-2">Compliance checklist</p>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-xs uppercase text-muted-foreground mb-2">Compliance checklist</p>
                     <div className="space-y-2 text-sm">
                       <label className="flex items-center gap-2"><input type="checkbox" checked={complianceChecks.technicalReviewed} onChange={(e) => setComplianceChecks((prev) => ({ ...prev, technicalReviewed: e.target.checked }))} /> Technical proposal reviewed</label>
                       <label className="flex items-center gap-2"><input type="checkbox" checked={complianceChecks.financialReviewed} onChange={(e) => setComplianceChecks((prev) => ({ ...prev, financialReviewed: e.target.checked }))} /> Financial proposal reviewed</label>

@@ -105,6 +105,7 @@ export default function Dashboard() {
   const profileImageInputRef = useRef(null);
 
   const { tenders, bids, team, loading, refreshData, setTenders } = useDashboardStats(user?.role);
+  const isRefreshing = loading && (tenders.length > 0 || bids.length > 0 || team.length > 0);
 
   const openProfileImagePicker = () => {
     profileImageInputRef.current?.click();
@@ -192,13 +193,13 @@ export default function Dashboard() {
   };
 
   if (loading && tenders.length === 0 && bids.length === 0) return (
-    <div className="p-8 text-white flex items-center justify-center min-h-screen">
+    <div className="p-8 text-foreground flex items-center justify-center min-h-screen">
       <div className="animate-pulse text-zinc-500">Loading live data...</div>
     </div>
   );
 
   return (
-    <div className="p-6 bg-black min-h-screen space-y-6 text-white">
+    <div className="p-6 bg-background min-h-screen space-y-6 text-foreground">
       <input
         ref={profileImageInputRef}
         type="file"
@@ -215,6 +216,12 @@ export default function Dashboard() {
             onRemovePhoto={handleRemoveProfileImage}
             uploadingProfileImage={uploadingProfileImage}
           />
+          {isRefreshing && (
+            <div className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Activity className="h-3.5 w-3.5 animate-spin" />
+              Refreshing data...
+            </div>
+          )}
         </div>
         
         {(user?.role === 'COMPANY_ADMIN' || user?.role === 'TENDER_POSTER') && (

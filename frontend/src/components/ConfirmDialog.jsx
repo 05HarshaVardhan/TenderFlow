@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 export default function ConfirmDialog({
   open,
@@ -32,7 +33,14 @@ export default function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button variant={confirmVariant} onClick={onConfirm} disabled={isLoading}>
-            {confirmLabel}
+            {isLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing...
+              </span>
+            ) : (
+              confirmLabel
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

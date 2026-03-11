@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import BidSubmissionModal from "@/components/tenders/BidSubmissionModal";
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Filter, Calendar, DollarSign, Briefcase, Building2, AlertOctagon } from "lucide-react";
+import { Search, Filter, Calendar, DollarSign, Briefcase, Building2, AlertOctagon, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 // Assuming you have a custom hook or context to get the current user's company info
 import { useAuth } from "@/context/authContext";
@@ -66,7 +66,7 @@ export default function BrowseTenders() {
 
   if (loading && tenders.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div>
         <p className="text-zinc-500">Scanning marketplace...</p>
       </div>
@@ -74,23 +74,26 @@ export default function BrowseTenders() {
   }
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white space-y-8">
+    <div className="p-6 bg-background min-h-screen text-foreground space-y-8">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Browse Tenders</h1>
         <p className="text-zinc-400 font-medium">Find and bid on the latest projects in your industry.</p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-muted/30 p-4 rounded-xl border border-border">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search by title or category..." 
-            className="pl-10 bg-zinc-900 border-zinc-800 text-white focus:ring-blue-500"
+            className="pl-10 pr-10 bg-background border-border text-foreground placeholder:text-muted-foreground focus:ring-blue-500"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {loading && tenders.length > 0 && (
+            <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button variant="outline" className="border-zinc-800 hover:bg-zinc-900 w-full md:w-auto text-zinc-300">
+        <Button variant="outline" className="border-border hover:bg-muted w-full md:w-auto text-muted-foreground">
           <Filter className="mr-2 h-4 w-4" /> Filters
         </Button>
       </div>

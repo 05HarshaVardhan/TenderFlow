@@ -177,19 +177,19 @@ console.log('emdDoc:', emdDoc)
   };
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] bg-zinc-950 border-zinc-800 text-white p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="p-6 border-b border-zinc-800">
+      <DialogContent className="sm:max-w-[800px] bg-card border-border text-foreground p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-6 border-b border-border">
           <div className="flex justify-between items-start">
             <div>
               <DialogTitle className="text-xl">
                 {isViewOnly ? "Bid Details" : existingBid ? "Edit Draft Bid" : "New Bid Submission"}
               </DialogTitle>
-              <DialogDescription className="text-zinc-500">
+              <DialogDescription className="text-muted-foreground">
                 Tender: {tender?.title || existingBid?.tender?.title}
               </DialogDescription>
             </div>
             {isViewOnly && (
-              <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${existingBid?.status === 'SUBMITTED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-zinc-500/10 text-zinc-500'
+              <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${existingBid?.status === 'SUBMITTED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted/40 text-muted-foreground'
                 }`}>
                 {existingBid?.status}
               </div>
@@ -198,18 +198,18 @@ console.log('emdDoc:', emdDoc)
         </DialogHeader>
 
         {/* Header/Progress */}
-        <div className="bg-zinc-900/30 px-6 py-4 border-b border-zinc-800">
+        <div className="bg-muted/30 px-6 py-4 border-b border-border">
           <div className="flex justify-between items-center mb-4">
             {STEPS.map((s) => (
-              <div key={s.id} className={`flex items-center gap-2 ${step >= s.id ? 'text-blue-500' : 'text-zinc-600'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= s.id ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-800'}`}>
+              <div key={s.id} className={`flex items-center gap-2 ${step >= s.id ? 'text-blue-500' : 'text-muted-foreground'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= s.id ? 'border-blue-500 bg-blue-500/10' : 'border-border'}`}>
                   {step > s.id ? <CheckCircle2 className="w-4 h-4" /> : <s.icon className="w-4 h-4" />}
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-tighter hidden sm:block">{s.title}</span>
               </div>
             ))}
           </div>
-          <Progress value={(step / 4) * 100} className="h-1 bg-zinc-800" />
+          <Progress value={(step / 4) * 100} className="h-1 bg-muted" />
         </div>
 
         {/* Content */}
@@ -244,7 +244,7 @@ console.log('emdDoc:', emdDoc)
               {!readOnly && <Input type="file" multiple onChange={(e) => setTechDocs([...techDocs, ...Array.from(e.target.files)])} />}
               <div className="space-y-2 mt-4">
                 {[...existingFiles.technical.map(f => ({ ...f, isSaved: true })), ...techDocs].map((file, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 bg-zinc-900 border border-zinc-800 rounded text-xs">
+                  <div key={i} className="flex items-center justify-between p-2 bg-muted/40 border border-border rounded text-xs">
                     <span className="flex items-center gap-2">
                       <FileText className="w-3 h-3 text-blue-400" />
                       {file.name || "Document"} {file.isSaved && "(Saved)"}
@@ -259,13 +259,13 @@ console.log('emdDoc:', emdDoc)
           {step === 3 && (
             <div className="space-y-6">
               {/* Financial Quote Section */}
-              <div className="space-y-4 p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg">
+              <div className="space-y-4 p-4 bg-muted/30 border border-border rounded-lg">
                 <h4 className="text-xs font-bold uppercase text-blue-500">1. Financial Quote</h4>
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Bid Amount ($)</Label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="number"
                         className="pl-9"
@@ -280,7 +280,7 @@ console.log('emdDoc:', emdDoc)
               </div>
 
               {/* Financial Documents Section */}
-              <div className="space-y-4 p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg">
+              <div className="space-y-4 p-4 bg-muted/30 border border-border rounded-lg">
                 <h4 className="text-xs font-bold uppercase text-blue-500">2. Financial Envelope</h4>
                 <div className="space-y-2">
                   <Label>Upload Financial Documents (BoQ, Price Breakup, etc.)</Label>
@@ -293,7 +293,7 @@ console.log('emdDoc:', emdDoc)
                   )}
                   <div className="space-y-2 mt-2">
                     {[...existingFiles.financial.map(f => ({ ...f, isSaved: true })), ...finDocs].map((file, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 bg-zinc-950 border border-zinc-800 rounded text-xs">
+                      <div key={i} className="flex items-center justify-between p-2 bg-background border border-border rounded text-xs">
                         <span className="flex items-center gap-2">
                           <FileText className="w-3 h-3 text-emerald-400" />
                           {file.name || "Financial Doc"} {file.isSaved && "(Saved)"}
@@ -307,14 +307,14 @@ console.log('emdDoc:', emdDoc)
                       </div>
                     ))}
                     {(finDocs.length === 0 && existingFiles.financial.length === 0) && (
-                      <p className="text-[10px] text-zinc-500 italic">No financial documents uploaded yet.</p>
+                      <p className="text-[10px] text-muted-foreground italic">No financial documents uploaded yet.</p>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* EMD Payment Section */}
-              <div className="space-y-4 p-4 bg-zinc-900/30 border border-zinc-800 rounded-lg">
+              <div className="space-y-4 p-4 bg-muted/30 border border-border rounded-lg">
                 <h4 className="text-xs font-bold uppercase text-blue-500">3. Earnest Money Deposit (EMD)</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -329,7 +329,7 @@ console.log('emdDoc:', emdDoc)
                   <div className="space-y-2">
                     <Label>Payment Mode</Label>
                     <select
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-md p-2 text-sm"
+                      className="w-full bg-background border border-border rounded-md p-2 text-sm text-foreground"
                       value={formData.paymentMode}
                       onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
                       disabled={readOnly}
@@ -377,26 +377,26 @@ console.log('emdDoc:', emdDoc)
               </div>
 
               <div className="space-y-2">
-                <Label className="text-zinc-500 text-[10px] uppercase font-bold">Proposal / Cover Letter</Label>
-                <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg text-sm text-zinc-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                <Label className="text-muted-foreground text-[10px] uppercase font-bold">Proposal / Cover Letter</Label>
+                <div className="p-4 bg-muted/30 border border-border rounded-lg text-sm text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
                   {formData.proposal || "No proposal provided."}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <Label className="text-zinc-500 text-[10px] uppercase font-bold">Submitted Documents</Label>
+                <Label className="text-muted-foreground text-[10px] uppercase font-bold">Submitted Documents</Label>
                 <div className="grid gap-2">
                   {[...existingFiles.technical.map(f => ({...f, type: 'Technical'})), 
                     ...existingFiles.financial.map(f => ({...f, type: 'Financial'}))].map((file, i) => (
-                    <a key={i} href={file.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-blue-500/50 transition-all">
+                    <a key={i} href={file.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-muted/30 border border-border rounded-lg hover:border-blue-500/50 transition-all">
                       <span className="flex items-center gap-3 text-xs">
                         <FileText className="w-4 h-4 text-blue-400" />
                         <div>
-                          <p className="text-[9px] text-zinc-500 uppercase">{file.type}</p>
+                          <p className="text-[9px] text-muted-foreground uppercase">{file.type}</p>
                           <p>{file.name || "View Document"}</p>
                         </div>
                       </span>
-                      <ChevronRight className="w-4 h-4 text-zinc-600" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     </a>
                   ))}
                   {existingFiles.emd && (
@@ -404,7 +404,7 @@ console.log('emdDoc:', emdDoc)
                        <span className="flex items-center gap-3 text-xs">
                         <CheckCircle2 className="w-4 h-4 text-amber-500" />
                         <div>
-                          <p className="text-[9px] text-zinc-500 uppercase">EMD Proof ({formData.paymentMode})</p>
+                          <p className="text-[9px] text-muted-foreground uppercase">EMD Proof ({formData.paymentMode})</p>
                           <p>TXN: {formData.transactionId}</p>
                         </div>
                       </span>
@@ -419,9 +419,9 @@ console.log('emdDoc:', emdDoc)
         </div>
 
         {/* Footer */}
-        <DialogFooter className="p-4 bg-zinc-900/50 border-t border-zinc-800">
+        <DialogFooter className="p-4 bg-muted/30 border-t border-border">
           {isViewOnly ? (
-            <Button onClick={onClose} className="w-full sm:w-auto bg-zinc-800 hover:bg-zinc-700">Close Window</Button>
+            <Button onClick={onClose} className="w-full sm:w-auto bg-muted hover:bg-muted/80 text-foreground">Close Window</Button>
           ) : (
             <div className="flex justify-between w-full">
                <div className="flex gap-2">
@@ -451,16 +451,16 @@ function FileLink({ file, label, icon }) {
       href={file.url} 
       target="_blank" 
       rel="noopener noreferrer"
-      className="flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-all group"
+      className="flex items-center justify-between p-3 bg-muted/30 border border-border rounded-lg hover:border-border/60 transition-all group"
     >
       <div className="flex items-center gap-3 overflow-hidden">
         {icon}
         <div className="overflow-hidden">
-          <p className="text-[10px] uppercase text-zinc-500 font-bold">{label}</p>
-          <p className="text-xs text-zinc-300 truncate">{file.name || 'View Document'}</p>
+          <p className="text-[10px] uppercase text-muted-foreground font-bold">{label}</p>
+          <p className="text-xs text-foreground truncate">{file.name || 'View Document'}</p>
         </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-white transition-colors" />
+      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
     </a>
   );
 }

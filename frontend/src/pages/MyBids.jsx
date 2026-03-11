@@ -153,14 +153,14 @@ const WithdrawConfirmationModal = ({ isOpen, onClose, onConfirm, bidId, isWithdr
 
   return (
     <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4 ${overlayAnimation}`}>
-      <div className={`bg-zinc-950 border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden ${panelAnimation}`}>
+      <div className={`bg-card border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden ${panelAnimation}`}>
         <div className="p-8">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4 border border-red-500/20">
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
-            <h3 className="text-2xl font-bold text-zinc-100">Permanent Withdrawal</h3>
-            <p className="text-zinc-400 text-sm mt-2">
+            <h3 className="text-2xl font-bold text-foreground">Permanent Withdrawal</h3>
+            <p className="text-muted-foreground text-sm mt-2">
               This action has serious consequences for your company's eligibility.
             </p>
           </div>
@@ -168,15 +168,15 @@ const WithdrawConfirmationModal = ({ isOpen, onClose, onConfirm, bidId, isWithdr
           <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4 space-y-3 mb-8">
             <div className="flex gap-3">
               <div className="h-1.5 w-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-              <p className="text-sm text-zinc-300">Your company is <b>permanently banned</b> from bidding on this specific tender.</p>
+              <p className="text-sm text-foreground">Your company is <b>permanently banned</b> from bidding on this specific tender.</p>
             </div>
             <div className="flex gap-3">
               <div className="h-1.5 w-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-              <p className="text-sm text-zinc-300">Existing documents and quotes will be archived as "Withdrawn".</p>
+              <p className="text-sm text-foreground">Existing documents and quotes will be archived as "Withdrawn".</p>
             </div>
             <div className="flex gap-3">
               <div className="h-1.5 w-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-              <p className="text-sm text-zinc-300">This cannot be reversed by administrators.</p>
+              <p className="text-sm text-foreground">This cannot be reversed by administrators.</p>
             </div>
           </div>
 
@@ -194,7 +194,7 @@ const WithdrawConfirmationModal = ({ isOpen, onClose, onConfirm, bidId, isWithdr
               variant="ghost"
               onClick={onClose}
               disabled={isWithdrawing}
-              className="w-full text-zinc-500 hover:text-zinc-300"
+              className="w-full text-muted-foreground hover:text-foreground"
             >
               Nevermind, keep my bid
             </Button>
@@ -216,6 +216,7 @@ export default function MyBids() {
   const [submitReview, setSubmitReview] = useState(null);
   const [submitReviewLoading, setSubmitReviewLoading] = useState(false);
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
+  const isRefreshing = loading && bids.length > 0;
   const submitConfirmRef = useRef(null);
   const submitConfirmOpen = Boolean(submitConfirmData);
   const { isMounted: isSubmitMounted, isVisible: isSubmitVisible } = usePresence(submitConfirmOpen, 200);
@@ -357,57 +358,63 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8 text-white pb-20">
+    <div className="max-w-6xl mx-auto p-6 space-y-8 text-foreground pb-20">
       {/* Header */}
       <div className="flex flex-col gap-1 border-b border-zinc-800 pb-6">
         <h1 className="text-4xl font-extrabold tracking-tight">Bid Registry</h1>
-        <p className="text-zinc-400">Manage your active proposals and track tender status.</p>
+        <p className="text-muted-foreground">Manage your active proposals and track tender status.</p>
+        {isRefreshing && (
+          <div className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 animate-spin" />
+            Refreshing data...
+          </div>
+        )}
       </div>
 
       {/* --- SEARCH & FILTER BAR (Mirroring ManageTenders) --- */}
-      <div className="flex flex-col md:flex-row gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-zinc-800/50">
+      <div className="flex flex-col md:flex-row gap-4 bg-muted/30 p-4 rounded-2xl border border-border/60">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search tenders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2.5 pl-10 pr-4 text-white outline-none focus:border-blue-500/50"
+            className="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500/50"
           />
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
-            <Filter className="w-4 h-4 text-zinc-500" />
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer min-w-[120px] hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer min-w-[120px] hover:bg-muted focus:ring-1 focus:ring-zinc-500"
             >
-              <option value="All" className="bg-zinc-950">All Statuses</option>
-              <option value="DRAFT" className="bg-zinc-950">Drafts</option>
-              <option value="SUBMITTED" className="bg-zinc-950">Submitted</option>
-              <option value="ACCEPTED" className="bg-zinc-950">Awarded</option>
-              <option value="WITHDRAWN" className="bg-zinc-950">Withdrawn</option>
+              <option value="All" className="bg-background">All Statuses</option>
+              <option value="DRAFT" className="bg-background">Drafts</option>
+              <option value="SUBMITTED" className="bg-background">Submitted</option>
+              <option value="ACCEPTED" className="bg-background">Awarded</option>
+              <option value="WITHDRAWN" className="bg-background">Withdrawn</option>
             </select>
           </div>
 
-          <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
-            <SortAsc className="w-4 h-4 text-zinc-500" />
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+            <SortAsc className="w-4 h-4 text-muted-foreground" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer hover:bg-muted focus:ring-1 focus:ring-zinc-500"
             >
-              <option value="newest" className="bg-zinc-950">Newest First</option>
-              <option value="oldest" className="bg-zinc-950">Oldest First</option>
-              <option value="value_high" className="bg-zinc-950">Price: High to Low</option>
+              <option value="newest" className="bg-background">Newest First</option>
+              <option value="oldest" className="bg-background">Oldest First</option>
+              <option value="value_high" className="bg-background">Price: High to Low</option>
             </select>
           </div>
 
           {isFiltered && (
-            <Button variant="ghost" onClick={clearFilters} className="text-zinc-500 hover:text-white hover:bg-zinc-800">
+            <Button variant="ghost" onClick={clearFilters} className="text-muted-foreground hover:text-foreground hover:bg-muted">
               <RotateCcw className="w-4 h-4 mr-2" /> Reset
             </Button>
           )}
@@ -504,35 +511,35 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
       {/* --- SUBMISSION AUDIT OVERLAY (Mirroring Tender Audit) --- */}
       {isSubmitMounted && activeSubmitConfirm && (
         <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 ${submitOverlayAnimation}`}>
-          <div className={`bg-zinc-950 border border-blue-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${submitPanelAnimation}`}>
+          <div className={`bg-card border border-blue-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${submitPanelAnimation}`}>
             <div className="p-6 text-center space-y-4">
               <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto border border-blue-500/20">
                 <ShieldCheck className="w-8 h-8 text-blue-500" />
               </div>
 
               <div className="space-y-1">
-                <h2 className="text-xl font-bold">Proposal Final Review</h2>
-                <p className="text-zinc-400 text-sm">Once submitted, financial quotes are locked.</p>
+                <h2 className="text-xl font-bold text-foreground">Proposal Final Review</h2>
+                <p className="text-muted-foreground text-sm">Once submitted, financial quotes are locked.</p>
               </div>
 
-              <div className="bg-zinc-900 rounded-xl p-4 text-left space-y-2 border border-zinc-800">
+              <div className="bg-muted/30 rounded-xl p-4 text-left space-y-2 border border-border">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-xs font-bold uppercase">Quote:</span>
+                  <span className="text-muted-foreground text-xs font-bold uppercase">Quote:</span>
                   <span className="text-emerald-400 font-black">${activeSubmitConfirm.amount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-xs font-bold uppercase">Timeline:</span>
-                  <span className="text-white font-bold">{activeSubmitConfirm.deliveryDays} Days</span>
+                  <span className="text-muted-foreground text-xs font-bold uppercase">Timeline:</span>
+                  <span className="text-foreground font-bold">{activeSubmitConfirm.deliveryDays} Days</span>
                 </div>
               </div>
 
               <div className="text-left space-y-2">
-                <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest px-1">Envelopes Attached</p>
+                <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest px-1">Envelopes Attached</p>
                 <div className="max-h-32 overflow-y-auto space-y-2">
                   {[...(activeSubmitConfirm.technicalDocs || []), ...(activeSubmitConfirm.financialDocs || [])].map((doc, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
-                      <FileIcon className="w-4 h-4 text-zinc-500" />
-                      <span className="text-xs text-zinc-300 truncate">{doc.name || `Attachment ${idx+1}`}</span>
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
+                      <FileIcon className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs text-foreground truncate">{doc.name || `Attachment ${idx+1}`}</span>
                     </div>
                   ))}
                 </div>
@@ -558,13 +565,13 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
                 </div>
 
                 {submitReviewLoading ? (
-                  <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
                     <Clock className="w-4 h-4 animate-spin" />
                     Reviewing your bid for completeness...
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-zinc-300">
+                    <p className="text-sm text-foreground">
                       {submitReview?.summary || "Review not available. You can still edit your draft and retry."}
                     </p>
 
@@ -581,9 +588,9 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
 
                     {submitReview?.nextActions?.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[10px] uppercase text-zinc-400 font-bold tracking-widest">Suggested Next Actions</p>
+                        <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Suggested Next Actions</p>
                         {submitReview.nextActions.map((action, idx) => (
-                          <div key={idx} className="text-xs text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                          <div key={idx} className="text-xs text-foreground bg-muted/30 border border-border rounded-lg p-2">
                             {action}
                           </div>
                         ))}
@@ -616,7 +623,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
                     setSubmitReviewLoading(false);
                   }}
                   disabled={isSubmittingBid}
-                  className="text-zinc-500"
+                  className="text-muted-foreground"
                 >
                   Cancel
                 </Button>
@@ -647,7 +654,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
 )}
 {/* --- ANALYSIS SIDE DRAWER --- */}
 <Sheet open={isAnalysisOpen} onOpenChange={setIsAnalysisOpen}>
-  <SheetContent className="w-full sm:max-w-xl bg-zinc-950 border-zinc-800 text-white overflow-y-auto">
+<SheetContent className="w-full sm:max-w-xl bg-card border-border text-foreground overflow-y-auto">
     <SheetHeader className="border-b border-zinc-800 pb-6">
       <div className="flex items-center gap-2 text-blue-500 mb-2">
         <ShieldCheck className="w-5 h-5" />
@@ -673,7 +680,7 @@ const [analyzingBid, setAnalyzingBid] = useState(null);
         <div className="mt-8 pt-6 border-t border-zinc-900">
           <Button 
             variant="outline" 
-            className="w-full border-zinc-800 text-zinc-400 hover:text-white"
+            className="w-full border-border text-muted-foreground hover:text-foreground"
             onClick={() => {
               setIsAnalysisOpen(false);
               handleEditClick(analyzingBid, true);

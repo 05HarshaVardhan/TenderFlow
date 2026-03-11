@@ -51,6 +51,7 @@ export default function ManageTenders() {
     description: '',
   });
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const publishConfirmRef = useRef(null);
   const publishConfirmOpen = Boolean(publishConfirmData);
   const { isMounted: isPublishMounted, isVisible: isPublishVisible } = usePresence(publishConfirmOpen, 200);
@@ -66,6 +67,7 @@ export default function ManageTenders() {
     : "animate-out zoom-out-95 slide-out-to-bottom-2 duration-200 ease-in";
 
   const isFiltered = search !== "" || category !== "All" || sortBy !== "newest";
+  const isRefreshing = loading && tenders.length > 0;
   const categoryOptions = useMemo(() => {
     const discovered = Array.from(new Set(
       (tenders || [])
@@ -189,6 +191,7 @@ export default function ManageTenders() {
     if (!publishConfirmData) return;
     const confirmed = publishConfirmData;
     try {
+      setIsPublishing(true);
       await api.patch(`/tenders/${confirmed._id}/publish`, {
         documents: confirmed.documents
       });
@@ -202,6 +205,8 @@ export default function ManageTenders() {
       refreshData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to publish");
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -232,8 +237,14 @@ export default function ManageTenders() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-zinc-800 pb-6">
         <div className="text-left">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Management Console</h1>
-          <p className="text-zinc-500 mt-1 text-left">Full lifecycle control for your procurement pipeline.</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Management Console</h1>
+          <p className="text-muted-foreground mt-1 text-left">Full lifecycle control for your procurement pipeline.</p>
+          {isRefreshing && (
+            <div className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Refreshing data...
+            </div>
+          )}
         </div>
         <Button
           onClick={openCreateModal}
@@ -244,31 +255,31 @@ export default function ManageTenders() {
       </div>
 
       {/* --- SEARCH & FILTER BAR --- */}
-      <div className="flex flex-col md:flex-row gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-zinc-800/50">
+      <div className="flex flex-col md:flex-row gap-4 bg-muted/30 p-4 rounded-2xl border border-border/60">
   <div className="relative flex-1">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
     <input
       type="text"
       placeholder="Search by title, description or tags..."
       value={search}
       onChange={(e) => setSearch(e.target.value)}
-      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-zinc-600 focus:border-blue-500/50 outline-none transition-all"
+      className="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:border-blue-500/50 outline-none transition-all"
     />
   </div>
 
   <div className="flex flex-wrap gap-3">
-    <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
-      <Filter className="w-4 h-4 text-zinc-500" />
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+      <Filter className="w-4 h-4 text-muted-foreground" />
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer min-w-[120px] hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer min-w-[120px] hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
         {categoryOptions.map((option) => (
           <option
             key={option}
             value={option}
-            className="bg-zinc-950 text-white"
+            className="bg-background text-foreground"
           >
             {option === 'All' ? 'All Categories' : option}
           </option>
@@ -276,34 +287,34 @@ export default function ManageTenders() {
       </select>
     </div>
 
-    <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
-      <Clock className="w-4 h-4 text-zinc-500" />
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+      <Clock className="w-4 h-4 text-muted-foreground" />
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
-        <option value="All" className="bg-zinc-950 text-white">All Statuses</option>
-        <option value="DRAFT" className="bg-zinc-950 text-white">Drafts Only</option>
-        <option value="PUBLISHED" className="bg-zinc-950 text-white">Live Tenders</option>
-        <option value="CLOSED" className="bg-zinc-950 text-white">Closed</option>
-        <option value="AWARDED" className="bg-zinc-950 text-white">Awarded</option>
+        <option value="All" className="bg-background text-foreground">All Statuses</option>
+        <option value="DRAFT" className="bg-background text-foreground">Drafts Only</option>
+        <option value="PUBLISHED" className="bg-background text-foreground">Live Tenders</option>
+        <option value="CLOSED" className="bg-background text-foreground">Closed</option>
+        <option value="AWARDED" className="bg-background text-foreground">Awarded</option>
       </select>
     </div>
 
-    <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
-      <SortAsc className="w-4 h-4 text-zinc-500" />
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+      <SortAsc className="w-4 h-4 text-muted-foreground" />
       <select
         value={sortBy}
         onChange={(e) => setSortBy(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-800/70 px-2 py-1 text-sm text-zinc-200 outline-none cursor-pointer hover:bg-zinc-800 focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
-        <option value="newest" className="bg-zinc-950 text-white">Newest First</option>
-        <option value="oldest" className="bg-zinc-950 text-white">Oldest First</option>
-        <option value="deadline" className="bg-zinc-950 text-white">Closing Soon</option>
-        <option value="status" className="bg-zinc-950 text-white">Group by Status</option>
-        <option value="value_high" className="bg-zinc-950 text-white">Value: High to Low</option>
-        <option value="value_low" className="bg-zinc-950 text-white">Value: Low to High</option>
+        <option value="newest" className="bg-background text-foreground">Newest First</option>
+        <option value="oldest" className="bg-background text-foreground">Oldest First</option>
+        <option value="deadline" className="bg-background text-foreground">Closing Soon</option>
+        <option value="status" className="bg-background text-foreground">Group by Status</option>
+        <option value="value_high" className="bg-background text-foreground">Value: High to Low</option>
+        <option value="value_low" className="bg-background text-foreground">Value: Low to High</option>
       </select>
     </div>
 
@@ -311,7 +322,7 @@ export default function ManageTenders() {
       <Button
         variant="ghost"
         onClick={clearFilters}
-        className="text-zinc-500 hover:text-white hover:bg-zinc-800 px-3"
+        className="text-muted-foreground hover:text-foreground hover:bg-muted px-3"
       >
         <RotateCcw className="w-4 h-4 mr-2" /> Reset
       </Button>
@@ -448,40 +459,40 @@ export default function ManageTenders() {
       {/* --- PUBLISH CONFIRMATION OVERLAY --- */}
       {isPublishMounted && activePublishConfirm && (
         <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 ${publishOverlayAnimation}`}>
-          <div className={`bg-zinc-950 border border-emerald-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${publishPanelAnimation}`}>
+          <div className={`bg-card border border-emerald-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${publishPanelAnimation}`}>
             <div className="p-6 text-center space-y-4">
               <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-500/20">
                 <ShieldCheck className="w-8 h-8 text-emerald-500" />
               </div>
 
               <div className="space-y-1">
-                <h2 className="text-xl font-bold text-white">Final Document Audit</h2>
-                <p className="text-zinc-400 text-sm">Review files. Delete unwanted uploads before publishing.</p>
+                <h2 className="text-xl font-bold text-foreground">Final Document Audit</h2>
+                <p className="text-muted-foreground text-sm">Review files. Delete unwanted uploads before publishing.</p>
               </div>
 
-              <div className="bg-zinc-900/50 rounded-xl p-3 border border-zinc-800 space-y-2 text-left">
+              <div className="bg-muted/30 rounded-xl p-3 border border-border space-y-2 text-left">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold">Category:</span>
-                  <span className="text-zinc-300 text-xs font-bold">{activePublishConfirm.category}</span>
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold">Category:</span>
+                  <span className="text-foreground text-xs font-bold">{activePublishConfirm.category}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold">Est. Value:</span>
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold">Est. Value:</span>
                   <span className="text-emerald-400 text-xs font-bold">${Number(activePublishConfirm.estimatedValue || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold">EMD Amount:</span>
-                  <span className="text-white text-xs font-bold">${Number(activePublishConfirm.emdAmount || 0).toLocaleString()}</span>
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold">EMD Amount:</span>
+                  <span className="text-foreground text-xs font-bold">${Number(activePublishConfirm.emdAmount || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500 text-[10px] uppercase font-bold">Deadline:</span>
-                  <span className="text-white text-xs font-bold">{new Date(activePublishConfirm.endDate).toLocaleDateString()}</span>
+                  <span className="text-muted-foreground text-[10px] uppercase font-bold">Deadline:</span>
+                  <span className="text-foreground text-xs font-bold">{new Date(activePublishConfirm.endDate).toLocaleDateString()}</span>
                 </div>
               </div>
 
               <div className="text-left space-y-2">
                 <div className="flex justify-between items-center px-1">
-                  <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-widest">Attached Files</p>
-                  <Badge variant="outline" className="text-[9px] h-4 border-zinc-800 text-zinc-400">
+                  <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest">Attached Files</p>
+                  <Badge variant="outline" className="text-[9px] h-4 border-border text-muted-foreground">
                     {activePublishConfirm.documents?.length || 0} Files
                   </Badge>
                 </div>
@@ -490,7 +501,7 @@ export default function ManageTenders() {
                   {activePublishConfirm.documents?.map((doc, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900 border border-zinc-800 group hover:border-zinc-700 transition-all"
+                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border border-border group hover:border-border/60 transition-all"
                     >
                       <a
                         href={doc.url || doc}
@@ -498,11 +509,11 @@ export default function ManageTenders() {
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center gap-3 truncate group-hover:text-blue-400"
                       >
-                        <FileIcon className="w-4 h-4 text-zinc-500 shrink-0" />
-                        <span className="text-xs text-zinc-300 truncate max-w-[180px]">
+                        <FileIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-foreground truncate max-w-[180px]">
                           {doc.name || `Document ${idx + 1}`}
                         </span>
-                        <ExternalLink className="w-3 h-3 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </a>
 
                       <button
@@ -513,7 +524,7 @@ export default function ManageTenders() {
                             documents: prev.documents.filter((_, i) => i !== idx)
                           }));
                         }}
-                        className="p-1.5 rounded-md hover:bg-red-500/10 text-zinc-600 hover:text-red-500 transition-colors"
+                        className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -521,25 +532,32 @@ export default function ManageTenders() {
                   ))}
 
                   {(!activePublishConfirm.documents || activePublishConfirm.documents.length === 0) && (
-                    <div className="text-center py-6 border border-dashed border-zinc-800 rounded-lg">
-                      <p className="text-xs text-zinc-600">No documents attached.</p>
+                    <div className="text-center py-6 border border-dashed border-border rounded-lg">
+                      <p className="text-xs text-muted-foreground">No documents attached.</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 pt-4 border-t border-zinc-800">
+              <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Button
                   onClick={confirmPublish}
-                  disabled={activePublishConfirm.documents?.length === 0}
+                  disabled={isPublishing || activePublishConfirm.documents?.length === 0}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white w-full h-11 font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirm & Go Live
+                  {isPublishing ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Publishing...
+                    </span>
+                  ) : (
+                    "Confirm & Go Live"
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={() => setPublishConfirmData(null)}
-                  className="text-zinc-500 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </Button>

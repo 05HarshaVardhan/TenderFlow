@@ -312,7 +312,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
   // --- HELPER COMPONENT FOR LABELS ---
   const FieldLabel = ({ label, name }) => (
     <div className="flex justify-between items-center mb-1.5">
-      <label className="text-sm font-medium text-zinc-400">{label}</label>
+      <label className="text-sm font-medium text-muted-foreground">{label}</label>
       {errors[name] && (
         <span className="text-[11px] text-red-400 flex items-center gap-1 animate-in fade-in slide-in-from-right-1">
           <AlertCircle className="w-3 h-3" /> {errors[name]}
@@ -324,15 +324,15 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 text-left ${overlayAnimation}`}>
-      <div className={`bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${panelAnimation}`}>
+      <div className={`bg-card border border-border w-full max-w-4xl lg:max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${panelAnimation}`}>
 
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50 flex-shrink-0">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="flex justify-between items-center p-6 border-b border-border bg-muted/40 flex-shrink-0">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             {editData ? <FileText className="text-blue-500 w-5 h-5" /> : <Plus className="text-emerald-500 w-5 h-5" />}
             {editData ? 'Edit Tender Draft' : 'Create New Tender'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -355,7 +355,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="Describe what you want to procure, constraints, timeline, and quality expectations..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-blue-500 transition-all"
+              className="w-full bg-background border border-border rounded-lg p-3 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500 transition-all"
             />
             <div className="flex justify-end">
               <Button
@@ -376,7 +376,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                className={`w-full bg-zinc-900 border ${errors.title ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
+                className={`w-full bg-background border ${errors.title ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500 transition-all`}
               />
             </div>
 
@@ -386,7 +386,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
                 name="categorySelect"
                 value={categoryMode === 'custom' ? '__custom__' : formData.category}
                 onChange={handleCategorySelection}
-                className={`w-full bg-zinc-900 border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none transition-all`}
+                className={`w-full bg-background border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none transition-all`}
               >
                 <option value="">Select Category</option>
                 {categoryOptions.map((category) => (
@@ -409,7 +409,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
                     }
                   }}
                   placeholder="Enter custom category"
-                  className={`mt-2 w-full bg-zinc-900 border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
+                  className={`mt-2 w-full bg-background border ${errors.category ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500 transition-all`}
                 />
               )}
             </div>
@@ -422,18 +422,18 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
               rows="3"
               value={formData.description}
               onChange={handleChange}
-              className={`w-full bg-zinc-900 border ${errors.description ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg p-4 text-white outline-none transition-all`}
+              className={`w-full bg-background border ${errors.description ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-lg p-4 text-foreground placeholder:text-muted-foreground outline-none transition-all`}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-400 mb-1.5 block">Est. Value ($)</label>
-              <input type="number" name="estimatedValue" value={formData.estimatedValue} onChange={handleChange} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500" />
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Est. Value ($)</label>
+              <input type="number" name="estimatedValue" value={formData.estimatedValue} onChange={handleChange} className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-400 mb-1.5 block">EMD Amount ($)</label>
-              <input type="number" name="emdAmount" value={formData.emdAmount} onChange={handleChange} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500" />
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">EMD Amount ($)</label>
+              <input type="number" name="emdAmount" value={formData.emdAmount} onChange={handleChange} className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500" />
             </div>
             <div className="space-y-1">
               <FieldLabel label="End Date" name="endDate" />
@@ -443,13 +443,13 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
                 min={today}
                 value={formData.endDate}
                 onChange={handleChange}
-                className={`w-full bg-zinc-900 border ${errors.endDate ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'} rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500 transition-all`}
+                className={`w-full bg-background border ${errors.endDate ? 'border-red-500/50 bg-red-500/5' : 'border-border'} rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500 transition-all`}
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-400 flex items-center gap-2 mb-1.5">
+            <label className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-1.5">
               <Tag className="w-4 h-4" /> Search Tags
             </label>
             <input
@@ -457,22 +457,22 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
               value={formData.tags}
               onChange={handleChange}
               placeholder="e.g. Infrastructure, Software"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg py-2.5 px-4 text-white outline-none focus:border-blue-500"
+              className="w-full bg-background border border-border rounded-lg py-2.5 px-4 text-foreground placeholder:text-muted-foreground outline-none focus:border-blue-500"
             />
           </div>
 
           {/* Upload Sections remain the same but styled consistently */}
           {formData.documents.length > 0 && (
             <div className="space-y-3">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Previous Files</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Previous Files</label>
               <div className="grid gap-2">
                 {formData.documents.map((doc, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl group hover:border-zinc-700 transition-all">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 border border-border rounded-xl group hover:border-border/60 transition-all">
                     <div className="flex items-center gap-3 truncate">
                       <FileText className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm text-zinc-300 truncate max-w-[200px]">{doc.name}</span>
+                      <span className="text-sm text-foreground truncate max-w-[200px]">{doc.name}</span>
                     </div>
-                    <button type="button" onClick={() => handleRemoveExistingFile(idx)} className="p-1.5 hover:bg-red-500/10 text-zinc-600 hover:text-red-500 rounded-lg">
+                    <button type="button" onClick={() => handleRemoveExistingFile(idx)} className="p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-500 rounded-lg">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -482,18 +482,18 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-400">Documents</label>
-            <div className="border-2 border-dashed border-zinc-800 rounded-xl p-6 bg-zinc-900/30 text-center relative hover:border-zinc-700 transition-all">
+            <label className="text-sm font-medium text-muted-foreground">Documents</label>
+            <div className="border-2 border-dashed border-border rounded-xl p-6 bg-muted/30 text-center relative hover:border-border/60 transition-all">
               <input type="file" multiple onChange={(e) => setNewFiles(Array.from(e.target.files))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-              <Upload className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
-              <p className="text-xs text-zinc-400">{newFiles.length > 0 ? `${newFiles.length} files selected` : "Drop technical files here"}</p>
+              <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">{newFiles.length > 0 ? `${newFiles.length} files selected` : "Drop technical files here"}</p>
             </div>
           </div>
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-zinc-800 flex justify-end gap-3 bg-zinc-900/50 flex-shrink-0">
-          <Button variant="ghost" onClick={onClose} className="text-zinc-400">Cancel</Button>
+        <div className="p-6 border-t border-border flex justify-end gap-3 bg-muted/40 flex-shrink-0">
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">Cancel</Button>
           <Button form="tender-form" type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editData ? 'Save Changes' : 'Create Draft')}
           </Button>
