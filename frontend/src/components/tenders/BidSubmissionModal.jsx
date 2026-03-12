@@ -179,7 +179,7 @@ console.log('emdDoc:', emdDoc)
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] bg-card border-border text-foreground p-0 overflow-hidden flex flex-col max-h-[90vh]">
         <DialogHeader className="p-6 border-b border-border">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
             <div>
               <DialogTitle className="text-xl">
                 {isViewOnly ? "Bid Details" : existingBid ? "Edit Draft Bid" : "New Bid Submission"}
@@ -199,7 +199,7 @@ console.log('emdDoc:', emdDoc)
 
         {/* Header/Progress */}
         <div className="bg-muted/30 px-6 py-4 border-b border-border">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap justify-between gap-3 mb-4">
             {STEPS.map((s) => (
               <div key={s.id} className={`flex items-center gap-2 ${step >= s.id ? 'text-blue-500' : 'text-muted-foreground'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${step >= s.id ? 'border-blue-500 bg-blue-500/10' : 'border-border'}`}>
@@ -213,7 +213,7 @@ console.log('emdDoc:', emdDoc)
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 pt-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 pt-4">
           {step === 1 && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -316,7 +316,7 @@ console.log('emdDoc:', emdDoc)
               {/* EMD Payment Section */}
               <div className="space-y-4 p-4 bg-muted/30 border border-border rounded-lg">
                 <h4 className="text-xs font-bold uppercase text-blue-500">3. Earnest Money Deposit (EMD)</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Transaction ID</Label>
                     <Input
@@ -365,7 +365,7 @@ console.log('emdDoc:', emdDoc)
 
           {step === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                   <p className="text-[10px] uppercase text-emerald-600 font-bold mb-1">Total Quote</p>
                   <p className="text-xl font-mono text-emerald-500">${Number(formData.bidAmount).toLocaleString()}</p>
@@ -423,17 +423,17 @@ console.log('emdDoc:', emdDoc)
           {isViewOnly ? (
             <Button onClick={onClose} className="w-full sm:w-auto bg-muted hover:bg-muted/80 text-foreground">Close Window</Button>
           ) : (
-            <div className="flex justify-between w-full">
-               <div className="flex gap-2">
-                {step > 1 && <Button variant="ghost" onClick={prevStep} disabled={isSaving || submitting}><ChevronLeft className="mr-2 h-4 w-4"/> Back</Button>}
-                <Button variant="outline" onClick={() => handleAction(false)} disabled={isSaving || submitting}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {step > 1 && <Button variant="ghost" onClick={prevStep} disabled={isSaving || submitting} className="w-full sm:w-auto"><ChevronLeft className="mr-2 h-4 w-4"/> Back</Button>}
+                <Button variant="outline" onClick={() => handleAction(false)} disabled={isSaving || submitting} className="w-full sm:w-auto">
                   {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Draft"}
                 </Button>
               </div>
               {step < 4 ? (
-                <Button onClick={nextStep} className="bg-blue-600" disabled={isSaving || submitting}>Next <ChevronRight className="ml-2 h-4 w-4"/></Button>
+                <Button onClick={nextStep} className="bg-blue-600 w-full sm:w-auto" disabled={isSaving || submitting}>Next <ChevronRight className="ml-2 h-4 w-4"/></Button>
               ) : (
-                <Button onClick={() => handleAction(true)} className="bg-emerald-600" disabled={isSaving || submitting}>
+                <Button onClick={() => handleAction(true)} className="bg-emerald-600 w-full sm:w-auto" disabled={isSaving || submitting}>
                   {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : "Submit Final Bid"}
                 </Button>
               )}

@@ -31,7 +31,7 @@ export default function TenderListTable({ tenders, onAction }) {
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-hidden">
-      <Table>
+      <Table className="min-w-[720px]">
         <TableHeader className="bg-zinc-900/50">
           <TableRow className="border-zinc-800 hover:bg-transparent">
             <TableHead className="text-zinc-400">Tender Details</TableHead>

@@ -193,13 +193,13 @@ export default function Dashboard() {
   };
 
   if (loading && tenders.length === 0 && bids.length === 0) return (
-    <div className="p-8 text-foreground flex items-center justify-center min-h-screen">
+    <div className="p-6 text-foreground flex items-center justify-center min-h-screen">
       <div className="animate-pulse text-zinc-500">Loading live data...</div>
     </div>
   );
 
   return (
-    <div className="p-6 bg-background min-h-screen space-y-6 text-foreground">
+    <div className="p-4 sm:p-6 bg-background min-h-screen space-y-6 text-foreground">
       <input
         ref={profileImageInputRef}
         type="file"
@@ -227,7 +227,7 @@ export default function Dashboard() {
         {(user?.role === 'COMPANY_ADMIN' || user?.role === 'TENDER_POSTER') && (
           <Button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 h-11 shadow-lg shadow-blue-900/20 shrink-0 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 h-11 shadow-lg shadow-blue-900/20 shrink-0 transition-all active:scale-95 w-full sm:w-auto"
           >
             <PlusCircle className="mr-2 h-5 w-5" />
             <span className="font-semibold">New Tender</span>

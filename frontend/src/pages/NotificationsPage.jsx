@@ -58,7 +58,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto max-w-4xl space-y-4 px-4 sm:px-0">
       <div className="mb-2 flex items-center gap-2">
         <Bell className="h-5 w-5" />
         <h1 className="text-2xl font-semibold">Notifications</h1>

@@ -168,7 +168,7 @@ export default function DeveloperPanel() {
               Scope: {data?.scope} | Last refresh: {new Date(data?.generatedAt).toLocaleString()}
             </p>
           </div>
-          <div className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300">
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300 break-words">
             Node {runtime?.nodeVersion} | {runtime?.env} | Monitoring {runtime?.monitoring?.provider || 'none'} {runtime?.monitoring?.enabled ? 'ON' : 'OFF'}
           </div>
         </div>
@@ -313,7 +313,7 @@ export default function DeveloperPanel() {
             <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
               {companies.map((company) => (
                 <div key={company.id} className="rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-zinc-100">{company.name}</p>
                       <p className="text-xs text-zinc-400">
@@ -325,6 +325,7 @@ export default function DeveloperPanel() {
                       size="sm"
                       onClick={() => onDeleteCompany(company.id, company.name)}
                       disabled={deleteCompanyMutation.isPending}
+                      className="w-full sm:w-auto"
                     >
                       <Trash2 className="mr-1 h-4 w-4" />
                       Remove
@@ -349,17 +350,18 @@ export default function DeveloperPanel() {
                   </p>
                   <div className="space-y-2">
                     {group.users.map((user) => (
-                      <div key={user._id} className="flex items-center justify-between gap-2 rounded border border-zinc-800 px-2 py-1">
+                      <div key={user._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded border border-zinc-800 px-2 py-1">
                         <div>
                           <p className="text-sm text-zinc-200">{user.name}</p>
                           <p className="text-xs text-zinc-500">{user.email} | {user.role}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => onToggleUserBlock(user)}
                             disabled={blockMutation.isPending || unblockMutation.isPending}
+                            className="w-full sm:w-auto"
                           >
                             {user.isActive ? <Ban className="mr-1 h-4 w-4" /> : <CheckCircle2 className="mr-1 h-4 w-4" />}
                             {user.isActive ? 'Block' : 'Unblock'}
@@ -369,6 +371,7 @@ export default function DeveloperPanel() {
                             variant="destructive"
                             onClick={() => deleteUserMutation.mutate(user._id)}
                             disabled={deleteUserMutation.isPending}
+                            className="w-full sm:w-auto"
                           >
                             <Trash2 className="mr-1 h-4 w-4" />
                             Remove

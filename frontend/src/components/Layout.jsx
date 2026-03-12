@@ -30,7 +30,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
-  MonitorCog
+  MonitorCog,
+  Menu,
+  X
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -44,6 +46,7 @@ function Layout({ children }) {
   const [totalUnread, setTotalUnread] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // 1. Listen for global unread notifications
   useEffect(() => {
@@ -74,6 +77,21 @@ function Layout({ children }) {
       setTotalUnread(0);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const handleChange = () => {
+      if (media.matches) setIsSidebarOpen(false);
+    };
+
+    handleChange();
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     const fetchRecentNotifications = async () => {
@@ -218,9 +236,22 @@ function Layout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
+        {isSidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            aria-label="Close sidebar overlay"
+          />
+        )}
+
         {/* Sidebar */}
-        <aside className="w-64 border-r border-border flex flex-col fixed h-full bg-card">
-          <div className="p-6">
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-border bg-card flex flex-col transition-transform duration-300 ease-out ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } lg:translate-x-0`}
+        >
+          <div className="p-6 flex-1 overflow-y-auto">
             <h2 className="text-xl font-bold tracking-tighter flex items-center gap-2">
               <div className="h-6 w-6 bg-foreground rounded-md flex items-center justify-center">
                 <div className="h-3 w-3 bg-background rotate-45" />
@@ -239,6 +270,7 @@ function Layout({ children }) {
                     <Link
                       key={item.name}
                       to={item.href}
+                      onClick={() => setIsSidebarOpen(false)}
                       className={`flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors ${
                         isActive
                           ? 'bg-blue-500/10 text-blue-400'
@@ -303,12 +335,23 @@ function Layout({ children }) {
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex-1 ml-64">
+        <div className="flex-1 lg:ml-64">
           <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center justify-between h-16 px-6">
-              <h1 className="text-lg font-semibold">
-                {navigation.find(nav => nav.href === location.pathname)?.name || 'Dashboard'}
-              </h1>
+            <div className="flex items-center justify-between h-16 px-4 sm:px-6">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsSidebarOpen((prev) => !prev)}
+                  className="lg:hidden"
+                  aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+                >
+                  {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </Button>
+                <h1 className="text-lg font-semibold">
+                  {navigation.find(nav => nav.href === location.pathname)?.name || 'Dashboard'}
+                </h1>
+              </div>
               
               <div className="flex items-center gap-4">
                 <Button
@@ -386,7 +429,7 @@ function Layout({ children }) {
             </div>
           </header>
           
-          <main className="p-6">
+          <main className="p-4 sm:p-6">
             <div className="max-w-7xl mx-auto">
               {children}
             </div>

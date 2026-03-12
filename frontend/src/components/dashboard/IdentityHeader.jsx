@@ -12,7 +12,7 @@ import { Pencil, Trash2 } from "lucide-react";
 
 export default function IdentityHeader({ user, onUploadPhoto, onRemovePhoto, uploadingProfileImage }) {
   return (
-    <div className="flex items-center gap-4 py-2">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 py-2">
       {/* User Avatar Circle */}
       <div className="relative h-24 w-24 shrink-0">
         <div className="h-24 w-24 rounded-full bg-blue-600/20 border border-blue-500/50 flex items-center justify-center text-blue-400 font-bold text-4xl overflow-hidden">

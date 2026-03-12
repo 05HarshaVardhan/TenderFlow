@@ -74,14 +74,14 @@ export default function BrowseTenders() {
   }
 
   return (
-    <div className="p-6 bg-background min-h-screen text-foreground space-y-8">
+    <div className="p-4 sm:p-6 bg-background min-h-screen text-foreground space-y-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Browse Tenders</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Browse Tenders</h1>
         <p className="text-zinc-400 font-medium">Find and bid on the latest projects in your industry.</p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-muted/30 p-4 rounded-xl border border-border">
-        <div className="relative flex-1 w-full">
+      <div className="flex flex-col lg:flex-row gap-4 items-center bg-muted/30 p-4 rounded-xl border border-border">
+        <div className="relative flex-1 w-full min-w-0">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search by title or category..." 
@@ -115,7 +115,7 @@ export default function BrowseTenders() {
                     </Badge>
                   )}
                 </div>
-                <CardTitle className={`text-xl transition-colors line-clamp-1 ${isWithdrawn ? 'text-zinc-500' : 'group-hover:text-blue-400'}`}>
+                <CardTitle className={`text-lg sm:text-xl transition-colors line-clamp-1 ${isWithdrawn ? 'text-zinc-500' : 'group-hover:text-blue-400'}`}>
                   {tender.title}
                 </CardTitle>
               </CardHeader>
@@ -127,7 +127,7 @@ export default function BrowseTenders() {
                 
                 <div className="flex flex-col gap-2 text-sm">
                   {tender.ownerCompany?.name && (
-                    <div className="flex items-center justify-between gap-2 text-zinc-400">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 text-zinc-400">
                       <span className="truncate">By: {tender.ownerCompany.name}</span>
                       {tender.ownerCompany?._id && (
                         <Link

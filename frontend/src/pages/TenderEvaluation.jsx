@@ -177,16 +177,16 @@ export default function TenderEvaluation() {
   const canSubmitAward = canProceedToStep2 && justificationValid && requiredChecksDone;
 
   return (
-    <div className="p-6 space-y-6 text-foreground max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 text-foreground max-w-6xl mx-auto">
       <Button variant="ghost" onClick={() => navigate(-1)} className="text-zinc-400 hover:text-white mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Management
       </Button>
 
       {/* Tender Header Card */}
-      <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 flex justify-between items-start">
+      <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{tender.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">{tender.title}</h1>
             <Badge className={`${
               tender.status === 'AWARDED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
             } uppercase`}>
@@ -195,7 +195,7 @@ export default function TenderEvaluation() {
           </div>
           <p className="text-zinc-400 max-w-2xl">{tender.description}</p>
         </div>
-        <div className="text-right space-y-1">
+        <div className="text-left lg:text-right space-y-1">
           <p className="text-sm text-zinc-500 font-medium uppercase tracking-wider">Total Bids</p>
           <p className="text-4xl font-black text-blue-500">{bids.length}</p>
         </div>
@@ -218,7 +218,7 @@ export default function TenderEvaluation() {
               bid.status === 'REJECTED' ? 'opacity-60' : ''
             }`}>
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                   
                   {/* Bidder Profile */}
                   <div className="flex items-start gap-4 flex-1">
@@ -245,16 +245,16 @@ export default function TenderEvaluation() {
                   </div>
 
                   {/* Pricing and Stats */}
-                  <div className="grid grid-cols-2 md:flex gap-8 items-center text-center md:text-right">
+                  <div className="grid grid-cols-2 md:flex gap-8 items-center text-left sm:text-center md:text-right">
                     <div>
                       <p className="text-[10px] uppercase text-zinc-500 font-bold">Offer Price</p>
-                      <div className="flex items-center justify-center md:justify-end text-emerald-400 text-xl font-bold">
+                      <div className="flex items-center justify-start sm:justify-center md:justify-end text-emerald-400 text-xl font-bold">
                         <DollarSign className="h-5 w-5" /> {bid.amount?.toLocaleString()}
                       </div>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase text-zinc-500 font-bold">Timeline</p>
-                      <div className="flex items-center justify-center md:justify-end text-zinc-300 font-medium">
+                      <div className="flex items-center justify-start sm:justify-center md:justify-end text-zinc-300 font-medium">
                         <Clock className="h-4 w-4 mr-1 text-zinc-500" /> {bid.deliveryDays} Days
                       </div>
                     </div>
@@ -271,7 +271,7 @@ export default function TenderEvaluation() {
                     ) : (
                       // Only show buttons if the tender is NOT already awarded
                       tender.status !== 'AWARDED' && (
-                        <div className="flex flex-col gap-2 min-w-[140px]">
+                        <div className="flex flex-col gap-2 min-w-0 sm:min-w-[140px]">
                           <Button 
                             onClick={() => openAwardModal(bid)}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white w-full h-9"
@@ -300,7 +300,7 @@ export default function TenderEvaluation() {
       {isAwardMounted && selectedBid && (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 ${awardOverlayAnimation}`}>
           <div className={`w-full max-w-4xl rounded-xl border border-border bg-card ${awardPanelAnimation}`}>
-            <div className="flex items-center justify-between border-b border-border p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border p-4">
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">Pre-Award Validation</p>
                 <h3 className="text-xl font-bold text-foreground">Award Review - {selectedBid.bidderCompany?.name || 'Bidder'}</h3>
@@ -309,7 +309,7 @@ export default function TenderEvaluation() {
             </div>
 
             <div className="p-5">
-              <div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="mb-5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className={awardStep >= 1 ? 'text-blue-400' : ''}>1. Validation</span>
                 <span>{'->'}</span>
                 <span className={awardStep >= 2 ? 'text-blue-400' : ''}>2. Analytics</span>
@@ -446,7 +446,7 @@ export default function TenderEvaluation() {
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-zinc-800 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-zinc-800 p-4">
               <Button
                 variant="outline"
                 disabled={awardStep === 1 || awarding}

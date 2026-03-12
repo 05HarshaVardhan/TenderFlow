@@ -327,7 +327,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
       <div className={`bg-card border border-border w-full max-w-4xl lg:max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${panelAnimation}`}>
 
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-border bg-muted/40 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-6 border-b border-border bg-muted/40 flex-shrink-0">
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
             {editData ? <FileText className="text-blue-500 w-5 h-5" /> : <Plus className="text-emerald-500 w-5 h-5" />}
             {editData ? 'Edit Tender Draft' : 'Create New Tender'}
@@ -362,7 +362,7 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
                 type="button"
                 onClick={handleGenerateDraft}
                 disabled={aiLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
               >
                 {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate with AI'}
               </Button>
@@ -492,9 +492,9 @@ export default function CreateTenderModal({ isOpen, onClose, onSuccess, editData
         </form>
 
         {/* Footer */}
-        <div className="p-6 border-t border-border flex justify-end gap-3 bg-muted/40 flex-shrink-0">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">Cancel</Button>
-          <Button form="tender-form" type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
+        <div className="p-6 border-t border-border flex flex-col sm:flex-row sm:justify-end gap-3 bg-muted/40 flex-shrink-0">
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground w-full sm:w-auto">Cancel</Button>
+          <Button form="tender-form" type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-8 w-full sm:w-auto">
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (editData ? 'Save Changes' : 'Create Draft')}
           </Button>
         </div>

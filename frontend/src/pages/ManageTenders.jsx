@@ -233,9 +233,9 @@ export default function ManageTenders() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8 pb-20">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-8 pb-20">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-zinc-800 pb-6">
         <div className="text-left">
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Management Console</h1>
           <p className="text-muted-foreground mt-1 text-left">Full lifecycle control for your procurement pipeline.</p>
@@ -248,15 +248,15 @@ export default function ManageTenders() {
         </div>
         <Button
           onClick={openCreateModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 shadow-lg shadow-blue-900/20"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 shadow-lg shadow-blue-900/20 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 mr-2" /> Create New Tender
         </Button>
       </div>
 
       {/* --- SEARCH & FILTER BAR --- */}
-      <div className="flex flex-col md:flex-row gap-4 bg-muted/30 p-4 rounded-2xl border border-border/60">
-  <div className="relative flex-1">
+      <div className="flex flex-col lg:flex-row gap-4 bg-muted/30 p-4 rounded-2xl border border-border/60">
+  <div className="relative flex-1 min-w-0">
     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
     <input
       type="text"
@@ -268,12 +268,12 @@ export default function ManageTenders() {
   </div>
 
   <div className="flex flex-wrap gap-3">
-    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-full sm:w-auto">
       <Filter className="w-4 h-4 text-muted-foreground" />
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer min-w-[120px] hover:bg-muted focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer w-full sm:w-auto min-w-[120px] hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
         {categoryOptions.map((option) => (
           <option
@@ -287,12 +287,12 @@ export default function ManageTenders() {
       </select>
     </div>
 
-    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-full sm:w-auto">
       <Clock className="w-4 h-4 text-muted-foreground" />
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer hover:bg-muted focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer w-full sm:w-auto hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
         <option value="All" className="bg-background text-foreground">All Statuses</option>
         <option value="DRAFT" className="bg-background text-foreground">Drafts Only</option>
@@ -302,12 +302,12 @@ export default function ManageTenders() {
       </select>
     </div>
 
-    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+    <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-full sm:w-auto">
       <SortAsc className="w-4 h-4 text-muted-foreground" />
       <select
         value={sortBy}
         onChange={(e) => setSortBy(e.target.value)}
-        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer hover:bg-muted focus:ring-1 focus:ring-zinc-500"
+        className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none cursor-pointer w-full sm:w-auto hover:bg-muted focus:ring-1 focus:ring-zinc-500"
       >
         <option value="newest" className="bg-background text-foreground">Newest First</option>
         <option value="oldest" className="bg-background text-foreground">Oldest First</option>
@@ -322,7 +322,7 @@ export default function ManageTenders() {
       <Button
         variant="ghost"
         onClick={clearFilters}
-        className="text-muted-foreground hover:text-foreground hover:bg-muted px-3"
+        className="text-muted-foreground hover:text-foreground hover:bg-muted px-3 w-full sm:w-auto"
       >
         <RotateCcw className="w-4 h-4 mr-2" /> Reset
       </Button>
@@ -353,11 +353,11 @@ export default function ManageTenders() {
 
             return (
               <Card key={tender._id} className="bg-zinc-950 border-zinc-800 hover:border-zinc-700 transition-all group">
-                <CardContent className="p-0 flex">
-                  <div className={`w-1.5 ${config.bg.replace('/10', '')}`} />
+                <CardContent className="p-0 flex flex-col sm:flex-row">
+                  <div className={`h-1.5 w-full sm:w-1.5 sm:h-auto ${config.bg.replace('/10', '')}`} />
 
-                  <div className="flex-1 p-6 text-left">
-                    <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1 p-6 text-left min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <Badge className={`${config.bg} ${config.color} ${config.border} flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider`}>
@@ -400,7 +400,7 @@ export default function ManageTenders() {
                       </DropdownMenu>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
                       <div className="space-y-1">
                         <p className="text-[10px] uppercase text-zinc-500 font-semibold tracking-widest">Est. Value</p>
                         <div className={`flex items-center font-bold ${tender.estimatedValue > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
@@ -426,7 +426,7 @@ export default function ManageTenders() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-start sm:justify-end gap-2 sm:col-span-2 lg:col-span-1">
                         {isDraft && (
                           <Button
                             size="sm"

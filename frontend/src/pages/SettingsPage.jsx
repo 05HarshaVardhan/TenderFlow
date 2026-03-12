@@ -197,7 +197,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">Loading settings...</div>;
+    return <div className="p-4 sm:p-6 text-muted-foreground">Loading settings...</div>;
   }
 
   return (
@@ -210,7 +210,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">Company Logo</h2>
             <p className="text-sm text-muted-foreground">Displayed on your dashboard and public company profile areas.</p>
@@ -225,14 +225,14 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
           <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-          <Button type="button" onClick={() => logoInputRef.current?.click()} disabled={savingLogo}>
+          <Button type="button" onClick={() => logoInputRef.current?.click()} disabled={savingLogo} className="w-full sm:w-auto">
             <Upload className="mr-2 h-4 w-4" />
             {company.logoUrl ? 'Change Logo' : 'Upload Logo'}
           </Button>
           {company.logoUrl && (
-            <Button type="button" variant="outline" onClick={handleLogoRemove} disabled={savingLogo}>
+            <Button type="button" variant="outline" onClick={handleLogoRemove} disabled={savingLogo} className="w-full sm:w-auto">
               Remove Logo
             </Button>
           )}
@@ -439,13 +439,13 @@ export default function SettingsPage() {
                     />
                     Public certificate
                   </label>
-                  <div className="md:col-span-2 flex gap-2">
-                    <Button type="button" onClick={() => handleCertificateEditSave(cert.id)}>Save</Button>
-                    <Button type="button" variant="outline" onClick={() => setEditingCertificateId(null)}>Cancel</Button>
+                  <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
+                    <Button type="button" onClick={() => handleCertificateEditSave(cert.id)} className="w-full sm:w-auto">Save</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingCertificateId(null)} className="w-full sm:w-auto">Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">{cert.title}</h3>
@@ -463,7 +463,7 @@ export default function SettingsPage() {
                       View Certificate
                     </a>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 self-start sm:self-auto">
                     <Button type="button" variant="ghost" size="icon" onClick={() => startCertificateEdit(cert)}>
                       <Pencil className="h-4 w-4" />
                     </Button>

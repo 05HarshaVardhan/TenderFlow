@@ -42,9 +42,9 @@ export default function PublicCompanyProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-black text-white p-4 sm:p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-7 shadow-2xl">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-7 shadow-2xl">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div className="space-y-3">
               <div className="flex items-center gap-2">

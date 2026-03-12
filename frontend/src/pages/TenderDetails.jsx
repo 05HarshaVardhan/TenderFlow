@@ -129,15 +129,15 @@ export default function TenderDetails() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-foreground pb-12">
       {/* 1. Tender Header & Specifications */}
-      <div className="bg-zinc-950 p-8 rounded-xl border border-zinc-800 shadow-xl">
-        <div className="flex justify-between items-start mb-6">
+      <div className="bg-zinc-950 p-4 sm:p-8 rounded-xl border border-zinc-800 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
           <div className="space-y-1">
             <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 mb-2">
               {tender.category || 'General'}
             </Badge>
-            <h1 className="text-4xl font-bold tracking-tight">{tender.title}</h1>
+            <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">{tender.title}</h1>
           </div>
-          <Badge className="bg-zinc-800 text-zinc-300 border-zinc-700 px-4 py-1 text-sm uppercase">
+          <Badge className="bg-zinc-800 text-zinc-300 border-zinc-700 px-4 py-1 text-sm uppercase self-start">
             {tender.status}
           </Badge>
         </div>
@@ -489,13 +489,13 @@ export default function TenderDetails() {
                   </div>
 
                   {/* Pricing & Actions */}
-                  <div className="flex flex-col items-end gap-4 min-w-[150px]">
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-emerald-400 flex items-center justify-end">
+                  <div className="flex flex-col items-start sm:items-end gap-4 min-w-0 sm:min-w-[150px] w-full sm:w-auto">
+                    <div className="text-left sm:text-right">
+                      <div className="text-2xl font-black text-emerald-400 flex items-center justify-start sm:justify-end">
                         <DollarSign className="h-5 w-5" />
                         {bid.amount?.toLocaleString() || '---'}
                       </div>
-                      <div className="flex items-center justify-end gap-1 text-zinc-500 text-xs font-medium">
+                      <div className="flex items-center justify-start sm:justify-end gap-1 text-zinc-500 text-xs font-medium">
                         <Clock className="h-3 w-3" /> {bid.deliveryDays} Days Timeline
                       </div>
                     </div>
@@ -533,7 +533,7 @@ export default function TenderDetails() {
       {isFileViewerMounted && activeBid && activeViewingFiles && (
         <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${fileViewerOverlayAnimation}`}>
           <div className={`bg-card border border-border rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col ${fileViewerPanelAnimation}`}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 border-b border-border">
               <h3 className="text-lg font-semibold">
                 {activeViewingFiles === 'technical' ? 'Technical' : 'Financial'} Documents - {activeBid.bidderCompany?.name || 'Bidder'}
               </h3>

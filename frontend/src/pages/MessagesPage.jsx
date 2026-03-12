@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/chat/SideBar';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { MessageSquareDashed } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, MessageSquareDashed } from 'lucide-react';
 
 export default function MessagesPage() {
   const [activeChat, setActiveChat] = useState(null); // Structure: { type: 'user' | 'team', data: object }
@@ -12,9 +13,9 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-64px)] flex-col md:flex-row overflow-hidden bg-background">
       {/* 1. Sidebar Container */}
-      <aside className="w-80 border-r flex-shrink-0">
+      <aside className={`w-full md:w-80 border-b md:border-b-0 md:border-r flex-shrink-0 ${activeChat ? 'hidden md:block' : 'block'}`}>
         <Sidebar 
           onSelectChat={handleSelectChat} 
           activeChatId={activeChat?.data?._id} 
@@ -22,9 +23,15 @@ export default function MessagesPage() {
       </aside>
 
       {/* 2. Chat Window Container */}
-      <main className="flex-1 flex flex-col min-w-0 bg-muted/5">
+      <main className={`flex-1 flex flex-col min-w-0 bg-muted/5 ${activeChat ? 'flex' : 'hidden md:flex'}`}>
         {activeChat ? (
           <div className="flex-1 p-4 lg:p-6">
+            <div className="mb-4 md:hidden">
+              <Button variant="ghost" size="sm" onClick={() => setActiveChat(null)} className="pl-1">
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back to chats
+              </Button>
+            </div>
             <ChatWindow 
               targetUser={activeChat.type === 'user' ? activeChat.data : null}
               targetTeam={activeChat.type === 'team' ? activeChat.data : null}

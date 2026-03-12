@@ -19,13 +19,13 @@ export default function TeamsPage() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="container mx-auto py-6 sm:py-8 px-4 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <h1 className="text-3xl font-bold">Team Management</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Team Member
               </Button>
@@ -38,7 +38,7 @@ export default function TeamsPage() {
             </DialogContent>
           </Dialog>
           
-          <Button onClick={() => setIsCreateModalOpen(true)}>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Team
           </Button>
