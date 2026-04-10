@@ -62,18 +62,24 @@ Use the sections below to drop in screenshots and videos. Suggested folders:
 #### Dashboard
 <!-- TODO: Add dashboard screenshot -->
 ![Dashboard](docs/dashboard.png)
+![Dashboard Recent Activity](docs/company-dashboard-recent-events.png)
 
 #### Browse Tenders
 <!-- TODO: Add browse tenders screenshot -->
-![Browse Tenders](docs/screenshots/03-browse-tenders.png)
+![Browse Tenders](docs/browse-tenders-published.png)
 
-#### Tender Details
+#### Tender Managemtent
 <!-- TODO: Add tender details screenshot -->
-![Tender Details](docs/screenshots/04-tender-details.png)
+![Tender Management](docs/tender-management.png)
+![Tender Creation](docs/generative-ai-tender-creation.png)
+![Tender Creation Detail Inputs](docs/tender-creation-inputs.png)
+
+
+
 
 #### Tender Evaluation (AI Report)
 <!-- TODO: Add tender evaluation screenshot -->
-![Tender Evaluation](docs/screenshots/05-tender-evaluation.png)
+![Tender Evaluation](docs/tender-evaluation.png)
 
 #### My Bids
 <!-- TODO: Add my bids screenshot -->
