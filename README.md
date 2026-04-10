@@ -54,17 +54,14 @@ Use the sections below to drop in screenshots and videos. Suggested folders:
 - `docs/videos/`
 
 ### Screenshots
-#### Architecture / System Overview
-<!-- TODO: Add architecture diagram screenshot -->
-![Architecture Diagram](docs/screenshots/00-architecture.png)
 
 #### Login / Registration
 <!-- TODO: Add login and registration screenshot -->
-![Login / Registration](docs/screenshots/01-login.png)
+![Login / Registration](docs/login.png) (docs/register.png)
 
 #### Dashboard
 <!-- TODO: Add dashboard screenshot -->
-![Dashboard](docs/screenshots/02-dashboard.png)
+![Dashboard](docs/dashboard.png)
 
 #### Browse Tenders
 <!-- TODO: Add browse tenders screenshot -->
