@@ -57,7 +57,7 @@ Use the sections below to drop in screenshots and videos. Suggested folders:
 
 #### Login / Registration
 <!-- TODO: Add login and registration screenshot -->
-![Login / Registration](docs/login.png) (docs/register.png)
+![Login](docs/login.png) ![Register](docs/register.png)
 
 #### Dashboard
 <!-- TODO: Add dashboard screenshot -->
